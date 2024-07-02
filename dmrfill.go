@@ -207,17 +207,17 @@ func main() {
 				continue
 			}
 			var rxTone, txTone Tone
-			if repeater.PL != "" {
-				rxTone.CTCSS, err = strconv.ParseFloat(repeater.PL, 64)
+			if repeater.TSQ != "" {
+				rxTone.CTCSS, err = strconv.ParseFloat(repeater.TSQ, 64)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "skipping repeater with bad PL %s: %v\n", repeater.PL, err)
+					fmt.Fprintf(os.Stderr, "skipping repeater with bad TSQ %s: %v\n", repeater.TSQ, err)
 					continue
 				}
 			}
-			if repeater.TSQ != "" {
-				txTone.CTCSS, err = strconv.ParseFloat(repeater.TSQ, 64)
+			if repeater.PL != "" {
+				txTone.CTCSS, err = strconv.ParseFloat(repeater.PL, 64)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "skipping repeater with bad TSQ %s: %v\n", repeater.TSQ, err)
+					fmt.Fprintf(os.Stderr, "skipping repeater with bad PL %s: %v\n", repeater.PL, err)
 					continue
 				}
 			}

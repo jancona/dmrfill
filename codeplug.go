@@ -354,7 +354,7 @@ type Analog struct {
 	Admit       string                 `yaml:"admit"`
 	Bandwidth   string                 `yaml:"bandwidth"`
 	Power       DefaultableString      `yaml:"power"`
-	Timeout     int                    `yaml:"timeout"`
+	Timeout     DefaultableInt         `yaml:"timeout"`
 	Vox         DefaultableInt         `yaml:"vox"`
 	RxTone      Tone                   `yaml:"rxTone,flow,omitempty"`
 	TxTone      Tone                   `yaml:"txTone,flow,omitempty"`
