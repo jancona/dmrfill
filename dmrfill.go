@@ -1,12 +1,14 @@
 package main
 
 import (
+	"cmp"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 
 	"gopkg.in/yaml.v3"
@@ -15,7 +17,7 @@ import (
 type filterFlags []filter
 
 // filter clauses look like 'name=val1[,val2]...'
-var filterRegex = regexp.MustCompile(`(\w+)=(\w+(?:,[\w\s]+)*)`)
+var filterRegex = regexp.MustCompile(`(\w+)=([^,]+(?:,[\w\s]+)*)`)
 var valuesRegex = regexp.MustCompile(`,?([^,]+)`)
 
 type filter struct {
@@ -46,14 +48,17 @@ func (ff *filterFlags) Set(value string) error {
 }
 
 var (
-	inFile         string
-	outFile        string
-	datasource     string
-	filters        filterFlags
-	zonePattern    string
-	glPattern      string
-	channelPattern string
-	power          string
+	inFile             string
+	outFile            string
+	datasource         string
+	filters            filterFlags
+	zonePattern        string
+	glPattern          string
+	channelPattern     string
+	power              string
+	talkgroupsRequired bool
+	dmrQuery           bool
+	naRepeaterbookDB   bool
 )
 
 func init() {
@@ -61,10 +66,12 @@ func init() {
 	flag.StringVar(&outFile, "out", "", "Output QDMR Codeplug YAML file (default STDOUT)")
 	flag.StringVar(&datasource, "ds", "", "Repeater data source, either RADIOID or REPEATERBOOK (required)")
 	flag.Var(&filters, "f", "Filter clause of the form 'name=val1[,val2]...'")
-	flag.StringVar(&zonePattern, "zone", "$state_code $city:6 $callsign", "Pattern for forming zone names")
-	flag.StringVar(&glPattern, "gl", "", "Pattern for forming group list names (default zone + ' $time_slot')")
-	flag.StringVar(&channelPattern, "ch", "$city:6 $callsign $tg_number $tg_name", "Pattern for forming channel names")
+	flag.StringVar(&zonePattern, "zone", "$state_code $city:6 $callsign", "Pattern for forming DMR zone names, zone name for analog")
+	flag.StringVar(&glPattern, "gl", "", "Pattern for forming DMR group list names (default zone + ' $time_slot')")
+	flag.StringVar(&channelPattern, "ch", "$tg_name $tg_number $callsign $city", "Pattern for forming DMR channel names")
 	flag.StringVar(&power, "power", "High", "Channel power setting, one of (Min Low Mid High Max)")
+	flag.BoolVar(&talkgroupsRequired, "tg", true, "Only include DMR repeaters that have talkgroups defined")
+	flag.BoolVar(&naRepeaterbookDB, "na", true, "Use North American Repeaterbook database. Set it to 'false' to query outside the US, Canada and Mexico.")
 }
 
 const (
@@ -73,7 +80,7 @@ const (
 )
 
 func main() {
-	var codeplug Codeplug //map[interface{}]interface{}
+	var codeplug Codeplug
 
 	yamlReader, yamlWriter := parseArguments()
 	defer func() {
@@ -84,10 +91,11 @@ func main() {
 	decoder := yaml.NewDecoder(yamlReader)
 	err := decoder.Decode(&codeplug)
 	if err != nil {
-		fatal("Unable to parse YAML input, file: %s: %v\n", inFile, err)
+		fatal("Unable to parse YAML input, file: %s: %v", inFile, err)
 	}
 	// pretty.Println(codeplug)
-	if datasource == radioID {
+	switch datasource {
+	case radioID:
 		result, err := QueryRadioID(&codeplug, filters)
 		if err != nil {
 			fatal("error querying RadioID: %v", err)
@@ -95,12 +103,12 @@ func main() {
 		for _, repeater := range result.Results {
 			rxFreq, err := strconv.ParseFloat(repeater.Frequency, 64)
 			if err != nil {
-				fmt.Printf("skipping repeater with bad Frequency %s: %v\n", repeater.Frequency, err)
+				fmt.Fprintf(os.Stderr, "skipping repeater with bad Frequency %s: %v\n", repeater.Frequency, err)
 				continue
 			}
 			offset, err := strconv.ParseFloat(repeater.Offset, 64)
 			if err != nil {
-				fmt.Printf("skipping repeater with bad Offset %s: %v\n", repeater.Offset, err)
+				fmt.Fprintf(os.Stderr, "skipping repeater with bad Offset %s: %v\n", repeater.Offset, err)
 				continue
 			}
 			txFreq := rxFreq + offset
@@ -111,7 +119,7 @@ func main() {
 				Name: zoneName,
 			}
 			// add it to the codeplug
-			codeplug.Zones = append(codeplug.Zones, zone)
+			codeplug.Zones = append(codeplug.Zones, &zone)
 			// create two group lists, one for each timeslot
 			tg := TalkGroup{
 				TimeSlot: 1,
@@ -120,15 +128,20 @@ func main() {
 				ID:   NewID(ToSliceOfIDer(codeplug.GroupLists), "grp"),
 				Name: ReplaceArgs(glPattern, repeater, &tg),
 			}
-			codeplug.GroupLists = append(codeplug.GroupLists, gl1)
+			codeplug.GroupLists = append(codeplug.GroupLists, &gl1)
 			tg.TimeSlot = 2
 			gl2 := GroupList{
 				ID:   NewID(ToSliceOfIDer(codeplug.GroupLists), "grp"),
 				Name: ReplaceArgs(glPattern, repeater, &tg),
 			}
-			codeplug.GroupLists = append(codeplug.GroupLists, gl2)
+			codeplug.GroupLists = append(codeplug.GroupLists, &gl2)
 
 			for _, tg := range repeater.TalkGroups {
+				if tg.TimeSlot != 1 && tg.TimeSlot != 2 {
+					fmt.Fprintf(os.Stderr, "skipping invalid timeslot: %#v\n", tg)
+					continue
+				}
+				// fmt.Fprintf(os.Stderr, "%#v\n", tg)
 				// for each repeater-talkgroup combo,
 				//   if no contact exists for the talkgroup,
 				//		 create it and add it to the proper group list
@@ -159,28 +172,109 @@ func main() {
 						},
 						GroupList: glID,
 						Power:     DefaultableString{Value: power},
+						Contact:   c.DMR.ID,
+						Admit:     "Always",
 					},
 				}
 				// add it to the codeplug
-				codeplug.Channels = append(codeplug.Channels, ch)
+				codeplug.Channels = append(codeplug.Channels, &ch)
 				// and to the zone
 				zone.A = append(zone.A, ch.Digital.ID)
 			}
 		}
+
+	case repeaterbook:
+		result, err := QueryRepeaterbook(&codeplug, filters)
+		if err != nil {
+			fatal("error querying Repeaterbook: %v", err)
+		}
+		// create a Zone for the repeaters queried
+		zone := Zone{
+			ID:   NewID(ToSliceOfIDer(codeplug.Zones), "zone"),
+			Name: zonePattern,
+		}
+		// add it to the codeplug
+		codeplug.Zones = append(codeplug.Zones, &zone)
+		for _, repeater := range result.Results {
+			rxFreq, err := strconv.ParseFloat(repeater.Frequency, 64)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "skipping repeater with bad Frequency %s: %v\n", repeater.Frequency, err)
+				continue
+			}
+			txFreq, err := strconv.ParseFloat(repeater.InputFreq, 64)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "skipping repeater with bad InputFreq %s: %v\n", repeater.InputFreq, err)
+				continue
+			}
+			var rxTone, txTone Tone
+			if repeater.PL != "" {
+				rxTone.CTCSS, err = strconv.ParseFloat(repeater.PL, 64)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "skipping repeater with bad PL %s: %v\n", repeater.PL, err)
+					continue
+				}
+			}
+			if repeater.TSQ != "" {
+				txTone.CTCSS, err = strconv.ParseFloat(repeater.TSQ, 64)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "skipping repeater with bad TSQ %s: %v\n", repeater.TSQ, err)
+					continue
+				}
+			}
+			//   create a channel
+			channelName := ReplaceArgs(channelPattern, repeater, nil)
+
+			ch := Channel{
+				Analog: Analog{
+					ID:          NewID(ToSliceOfIDer(codeplug.Channels), "ch"),
+					Name:        channelName,
+					RxFrequency: rxFreq,
+					TxFrequency: txFreq,
+					Admit:       "Always",
+					Bandwidth:   "Wide",
+					Power:       DefaultableString{Value: power},
+					RxTone:      rxTone,
+					TxTone:      txTone,
+				},
+			}
+			// add it to the codeplug
+			codeplug.Channels = append(codeplug.Channels, &ch)
+			// and to the zone
+			zone.A = append(zone.A, ch.Analog.ID)
+		}
 	}
+	for _, z := range codeplug.Zones {
+		slices.SortStableFunc(z.A, func(a, b string) int {
+			return cmp.Compare(getChannelName(a, codeplug), getChannelName(b, codeplug))
+		})
+
+	}
+	slices.SortStableFunc(codeplug.Zones, func(a, b *Zone) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
 	// pretty.Println(codeplug)
 	encoder := yaml.NewEncoder(yamlWriter)
 	encoder.SetIndent(2)
 	err = encoder.Encode(codeplug)
 	if err != nil {
-		fatal("Error encoding YAML output, file: %s: %v\n", outFile, err)
+		fatal("Error encoding YAML output, file: %s: %v", outFile, err)
 	}
+}
+func getChannelName(id string, codeplug Codeplug) string {
+	for _, ch := range codeplug.Channels {
+		if ch.Analog.ID == id {
+			return ch.Analog.Name
+		} else if ch.Digital.ID == id {
+			return ch.Digital.Name
+		}
+	}
+	return ""
 }
 
 func GetOrCreateContact(tg *TalkGroup, codeplug *Codeplug) *Contact {
 	for _, c := range codeplug.Contacts {
-		if c.DMR.Number == tg.Number {
-			return &c
+		if c.DMR.ID != "" && c.DMR.Number == tg.Number {
+			return c
 		}
 	}
 	c := Contact{
@@ -191,7 +285,7 @@ func GetOrCreateContact(tg *TalkGroup, codeplug *Codeplug) *Contact {
 			Type:   "GroupCall",
 		},
 	}
-	codeplug.Contacts = append(codeplug.Contacts, c)
+	codeplug.Contacts = append(codeplug.Contacts, &c)
 	return &c
 }
 
@@ -219,7 +313,7 @@ func NewID(ids []IDer, defaultPrefix string) string {
 }
 
 func fatal(msg string, args ...any) {
-	fmt.Printf(msg, args...)
+	fmt.Fprintf(os.Stderr, msg+"\n", args...)
 	os.Exit(1)
 }
 
@@ -233,7 +327,7 @@ func parseArguments() (io.ReadCloser, io.WriteCloser) {
 	if inFile != "" {
 		yamlFile, err := os.Open(inFile)
 		if err != nil {
-			fatal("Unable to open input file %s: %v\n", inFile, err)
+			fatal("Unable to open input file %s: %v", inFile, err)
 		}
 		yamlReader = yamlFile
 	} else {
@@ -243,19 +337,30 @@ func parseArguments() (io.ReadCloser, io.WriteCloser) {
 	if outFile != "" {
 		yamlFile, err := os.Create(outFile)
 		if err != nil {
-			fatal("Unable to open output file %s: %v\n", outFile, err)
+			fatal("Unable to open output file %s: %v", outFile, err)
 		}
 		yamlWriter = yamlFile
 	} else {
 		yamlWriter = os.Stdout
 	}
 
-	if datasource != radioID && datasource != repeaterbook {
-		fatal("ds must be one of RADIOID or REPEATERBOOK\n")
+	switch datasource {
+	case radioID:
+		dmrQuery = true
+	case repeaterbook:
+		dmrQuery = false
+	default:
+		fatal("ds must be one of RADIOID or REPEATERBOOK")
 	}
 
-	if zonePattern == "" {
-		fatal("zone is required\n")
+	if !dmrQuery {
+		if zonePattern == flag.Lookup("zone").DefValue {
+			fatal("zone is required for analog datasources")
+		}
+		if channelPattern == flag.Lookup("ch").DefValue {
+
+			channelPattern = "$callsign $city"
+		}
 	}
 
 	if glPattern == "" {

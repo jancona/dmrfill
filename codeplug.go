@@ -241,10 +241,10 @@ type Codeplug struct {
 		} `yaml:"dmr,flow"`
 		Additional map[string]interface{} `yaml:",inline"` // Any new keys will show up here to be roundtripped
 	} `yaml:"radioIDs"`
-	Contacts    []Contact   `yaml:"contacts"`
-	GroupLists  []GroupList `yaml:"groupLists"`
-	Channels    []Channel   `yaml:"channels"`
-	Zones       []Zone      `yaml:"zones"`
+	Contacts    []*Contact   `yaml:"contacts"`
+	GroupLists  []*GroupList `yaml:"groupLists"`
+	Channels    []*Channel   `yaml:"channels"`
+	Zones       []*Zone      `yaml:"zones"`
 	Positioning []struct {
 		Aprs struct {
 			ID      string `yaml:"id"`
@@ -346,24 +346,20 @@ type Digital struct {
 }
 
 type Analog struct {
-	ID          string            `yaml:"id"`
-	Name        string            `yaml:"name"`
-	RxFrequency float64           `yaml:"rxFrequency"`
-	TxFrequency float64           `yaml:"txFrequency"`
-	RxOnly      bool              `yaml:"rxOnly"`
-	Admit       string            `yaml:"admit"`
-	Bandwidth   string            `yaml:"bandwidth"`
-	Power       DefaultableString `yaml:"power"`
-	Timeout     int               `yaml:"timeout"`
-	Vox         DefaultableInt    `yaml:"vox"`
-	RxTone      struct {
-		Ctcss int `yaml:"ctcss"`
-	} `yaml:"rxTone"`
-	TxTone struct {
-		Ctcss int `yaml:"ctcss"`
-	} `yaml:"txTone"`
-	Squelch    DefaultableInt         `yaml:"squelch"`
-	Additional map[string]interface{} `yaml:",inline"` // Any new keys will show up here to be roundtripped
+	ID          string                 `yaml:"id"`
+	Name        string                 `yaml:"name"`
+	RxFrequency float64                `yaml:"rxFrequency"`
+	TxFrequency float64                `yaml:"txFrequency"`
+	RxOnly      bool                   `yaml:"rxOnly"`
+	Admit       string                 `yaml:"admit"`
+	Bandwidth   string                 `yaml:"bandwidth"`
+	Power       DefaultableString      `yaml:"power"`
+	Timeout     int                    `yaml:"timeout"`
+	Vox         DefaultableInt         `yaml:"vox"`
+	RxTone      Tone                   `yaml:"rxTone,flow,omitempty"`
+	TxTone      Tone                   `yaml:"txTone,flow,omitempty"`
+	Squelch     DefaultableInt         `yaml:"squelch"`
+	Additional  map[string]interface{} `yaml:",inline"` // Any new keys will show up here to be roundtripped
 }
 
 type Zone struct {
@@ -376,6 +372,10 @@ type Zone struct {
 
 func (z Zone) GetID() string {
 	return z.ID
+}
+
+type Tone struct {
+	CTCSS float64 `yaml:"ctcss"`
 }
 
 type Contact struct {
@@ -425,7 +425,7 @@ type DefaultableInt struct {
 
 func (di *DefaultableInt) UnmarshalYAML(n *yaml.Node) error {
 	var err error
-	// fmt.Printf("DefaultableInt, node %#v\n", n)
+	// fmt.Fprintf(os.Stderr, "DefaultableInt, node %#v\n", n)
 	if n.Tag == "!default" {
 		di.Default = true
 	} else {
@@ -447,7 +447,7 @@ type DefaultableString struct {
 }
 
 func (ds *DefaultableString) UnmarshalYAML(n *yaml.Node) error {
-	// fmt.Printf("DefaultableString, node %#v\n", n)
+	// fmt.Fprintf(os.Stderr, "DefaultableString, node %#v\n", n)
 	if n.Tag == "!default" {
 		ds.Default = true
 	} else {

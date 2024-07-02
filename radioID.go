@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -20,7 +21,7 @@ var talkGroupRegex = regexp.MustCompile(`Time Slot # (\d) [-=] Group Call (\d+)(
 var lastUpdatedRegex = regexp.MustCompile(`Last Update: (\d+-\d+-\d+ \d+:\d+:\d+)`)
 
 // Supported query parameters
-var queryParamNames = map[string]struct{}{
+var radioIDQueryParamNames = map[string]struct{}{
 	"id":        {}, // DMR Repeater ID
 	"callsign":  {}, // Repeater callsign
 	"city":      {}, // Repeater city
@@ -39,6 +40,8 @@ func init() {
 		tag := strings.Split(field.Tag.Get("json"), ",")[0]
 		if tag != "" {
 			radioIDResultFields[tag] = field.Name
+		} else {
+			radioIDResultFields[strings.ToLower(field.Name)] = field.Name
 		}
 	}
 }
@@ -57,9 +60,8 @@ func QueryRadioID(cp *Codeplug, filters filterFlags) (*RadioIDResults, error) {
 	// Query params
 	params := url.Values{}
 	for _, f := range filters {
-		_, ok := queryParamNames[f.key]
+		_, ok := radioIDQueryParamNames[f.key]
 		if ok {
-			fmt.Printf("f: %#v\n", f)
 			for _, v := range f.value {
 				params.Add(f.key, v)
 			}
@@ -71,7 +73,7 @@ func QueryRadioID(cp *Codeplug, filters filterFlags) (*RadioIDResults, error) {
 		}
 	}
 	baseURL.RawQuery = params.Encode()
-	fmt.Println(baseURL.String())
+	fmt.Fprintln(os.Stderr, baseURL.String())
 	req, err := http.NewRequest("GET", baseURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -82,7 +84,7 @@ func QueryRadioID(cp *Codeplug, filters filterFlags) (*RadioIDResults, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	fmt.Printf("response status %s\n", resp.Status)
+	fmt.Fprintf(os.Stderr, "response status %s\n", resp.Status)
 	decoder := json.NewDecoder(resp.Body)
 	result := RadioIDResults{
 		Results: []RadioIDResult{},
@@ -91,50 +93,56 @@ func QueryRadioID(cp *Codeplug, filters filterFlags) (*RadioIDResults, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(resultFilters) > 0 {
-		// Do client filtering
-		newResults := []RadioIDResult{}
-		for _, r := range result.Results {
-			rv := reflect.ValueOf(r)
-			matchesAll := true
-			for _, filter := range resultFilters {
-				if !Matches(filter, rv) {
-					matchesAll = false
-					break
+	fmt.Fprintln(os.Stderr, "Found", result.Count, "results")
+	// Do client filtering
+	newResults := []RadioIDResult{}
+	for _, r := range result.Results {
+		f, err := strconv.ParseFloat(r.Frequency, 64)
+		if err == nil {
+			r.Band = band(f)
+		}
+		rv := reflect.ValueOf(r)
+		matchesAll := true
+		for _, filter := range resultFilters {
+			if !Matches(filter, rv) {
+				matchesAll = false
+				break
+			}
+		}
+		if matchesAll {
+			// Parse LastUpdated
+			m := lastUpdatedRegex.FindAllStringSubmatch(r.Rfinder, -1)
+			if len(m) > 0 {
+				r.LastUpdated, err = time.Parse("2006-01-02 15:04:05", m[0][1])
+				if err != nil {
+					return nil, fmt.Errorf("error parsing LastUpdated %s: %v", m[0][1], err)
 				}
 			}
-			if matchesAll {
-				// Parse LastUpdated
-				m := lastUpdatedRegex.FindAllStringSubmatch(r.Rfinder, -1)
-				if len(m) > 0 {
-					r.LastUpdated, err = time.Parse("2006-01-02 15:04:05", m[0][1])
-					if err != nil {
-						return nil, fmt.Errorf("error parsing LastUpdated %s: %v", m[0][1], err)
-					}
+			// Parse talk groups
+			m = talkGroupRegex.FindAllStringSubmatch(r.Rfinder, -1)
+			for _, s := range m {
+				id, err := strconv.Atoi(s[2])
+				if err != nil {
+					return nil, fmt.Errorf("error parsing TalkGroup ID %s: %v", s[2], err)
 				}
-				// Parse talk groups
-				m = talkGroupRegex.FindAllStringSubmatch(r.Rfinder, -1)
-				for _, s := range m {
-					id, err := strconv.Atoi(s[2])
-					if err != nil {
-						return nil, fmt.Errorf("error parsing TalkGroup ID %s: %v", s[2], err)
-					}
-					ts, err := strconv.Atoi(s[1])
-					if err != nil {
-						return nil, fmt.Errorf("error parsing TalkGroup TimeSlot %s: %v", s[1], err)
-					}
-					r.TalkGroups = append(r.TalkGroups, TalkGroup{
-						Number:   id,
-						TimeSlot: ts,
-						Name:     s[4],
-					})
+				ts, err := strconv.Atoi(s[1])
+				if err != nil {
+					return nil, fmt.Errorf("error parsing TalkGroup TimeSlot %s: %v", s[1], err)
 				}
+				r.TalkGroups = append(r.TalkGroups, TalkGroup{
+					Number:   id,
+					TimeSlot: ts,
+					Name:     s[4],
+				})
+			}
+			if !talkgroupsRequired || len(r.TalkGroups) > 0 {
 				newResults = append(newResults, r)
 			}
 		}
-		result.Count = len(newResults)
-		result.Results = newResults
 	}
+	result.Count = len(newResults)
+	result.Results = newResults
+	fmt.Fprintln(os.Stderr, result.Count, "results after filtering")
 	// pretty.Println(result)
 	return &result, nil
 }
@@ -169,6 +177,7 @@ type RadioIDResult struct {
 	Trustee     string `json:"trustee"`      // "KC1FRJ"
 	TSLinked    string `json:"ts_linked"`    // "TS1 TS2"
 	LastUpdated time.Time
+	Band        string
 	TalkGroups  []TalkGroup
 }
 

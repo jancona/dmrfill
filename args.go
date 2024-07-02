@@ -41,7 +41,7 @@ func ReplaceArgs(in string, c RepeaterContext, tg *TalkGroup) string {
 				case "band":
 					val = band(ToFloat(c.GetFrequency()))
 				case "state_code":
-					val = c.GetState()
+					val = states[c.GetState()]
 				}
 			}
 			if tg != nil {
@@ -61,7 +61,7 @@ func ReplaceArgs(in string, c RepeaterContext, tg *TalkGroup) string {
 			b.WriteString(val)
 		}
 	}
-
+	// fmt.Fprintf(os.Stderr, "in: %s, expanded: %s\n", in, b.String())
 	return b.String()
 }
 func band(freq float64) string {
@@ -84,20 +84,21 @@ func band(freq float64) string {
 		return "UNK"
 	}
 }
-func hf(freq float64) string {
-	switch {
-	case freq <= 30.0:
-		return "HF"
-	case freq > 30.0 && freq <= 300.0:
-		return "VHF"
-	case freq > 300.0 && freq <= 3000.0:
-		return "UHF"
-	case freq > 3000.0 && freq <= 30000.0:
-		return "SHF"
-	default:
-		return "UNK"
-	}
-}
+
+// func hf(freq float64) string {
+// 	switch {
+// 	case freq <= 30.0:
+// 		return "HF"
+// 	case freq > 30.0 && freq <= 300.0:
+// 		return "VHF"
+// 	case freq > 300.0 && freq <= 3000.0:
+// 		return "UHF"
+// 	case freq > 3000.0 && freq <= 30000.0:
+// 		return "SHF"
+// 	default:
+// 		return "UNK"
+// 	}
+// }
 
 func ToFloat(freq string) float64 {
 	f, err := strconv.ParseFloat(freq, 64)
@@ -105,4 +106,79 @@ func ToFloat(freq string) float64 {
 		f = 0.0
 	}
 	return f
+}
+
+var states = map[string]string{
+	"Alabama":                        "AL",
+	"Alaska":                         "AK",
+	"American Samoa":                 "AS",
+	"Arizona":                        "AZ",
+	"Arkansas":                       "AR",
+	"California":                     "CA",
+	"Colorado":                       "CO",
+	"Connecticut":                    "CT",
+	"Delaware":                       "DE",
+	"District of Columbia":           "DC",
+	"Federated States of Micronesia": "FM",
+	"Florida":                        "FL",
+	"Georgia":                        "GA",
+	"Guam":                           "GU",
+	"Hawaii":                         "HI",
+	"Idaho":                          "ID",
+	"Illinois":                       "IL",
+	"Indiana":                        "IN",
+	"Iowa":                           "IA",
+	"Kansas":                         "KS",
+	"Kentucky":                       "KY",
+	"Louisiana":                      "LA",
+	"Maine":                          "ME",
+	"Marshall Islands":               "MH",
+	"Maryland":                       "MD",
+	"Massachusetts":                  "MA",
+	"Michigan":                       "MI",
+	"Minnesota":                      "MN",
+	"Mississippi":                    "MS",
+	"Missouri":                       "MO",
+	"Montana":                        "MT",
+	"Nebraska":                       "NE",
+	"Nevada":                         "NV",
+	"New Hampshire":                  "NH",
+	"New Jersey":                     "NJ",
+	"New Mexico":                     "NM",
+	"New York":                       "NY",
+	"North Carolina":                 "NC",
+	"North Dakota":                   "ND",
+	"Northern Mariana Islands":       "MP",
+	"Ohio":                           "OH",
+	"Oklahoma":                       "OK",
+	"Oregon":                         "OR",
+	"Palau":                          "PW",
+	"Pennsylvania":                   "PA",
+	"Puerto Rico":                    "PR",
+	"Rhode Island":                   "RI",
+	"South Carolina":                 "SC",
+	"South Dakota":                   "SD",
+	"Tennessee":                      "TN",
+	"Texas":                          "TX",
+	"Utah":                           "UT",
+	"Vermont":                        "VT",
+	"Virgin Islands":                 "VI",
+	"Virginia":                       "VA",
+	"Washington":                     "WA",
+	"West Virginia":                  "WV",
+	"Wisconsin":                      "WI",
+	"Wyoming":                        "WY",
+	"Alberta":                        "AB",
+	"British Columbia":               "BC",
+	"Manitoba":                       "MB",
+	"New Brunswick":                  "NB",
+	"Newfoundland and Labrador":      "NL",
+	"Northwest Territories":          "NT",
+	"Nova Scotia":                    "NS",
+	"Nunavut":                        "NU",
+	"Ontario":                        "ON",
+	"Prince Edward Island":           "PE",
+	"Quebec":                         "QC",
+	"Saskatchewan":                   "SK",
+	"Yukon":                          "YT",
 }

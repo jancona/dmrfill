@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"log/slog"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
-
-	"github.com/kr/pretty"
+	"reflect"
+	"strconv"
+	"strings"
 )
 
 // API Doc: https://www.repeaterbook.com/wiki/doku.php?id=api
@@ -17,45 +18,115 @@ import (
 const repeaterbookNA = "https://www.repeaterbook.com/api/export.php"
 const repeaterbookROW = "https://www.repeaterbook.com/api/exportROW.php"
 
-func QueryRepeaterbook() {
+// Supported query parameters
+var repeaterbookQueryParamNames = map[string]struct{}{
+	"callsign":  {}, // Repeater callsign
+	"city":      {}, // Repeater city
+	"landmark":  {}, //
+	"state":     {}, // State / Province
+	"country":   {}, // Repeater country
+	"county":    {}, // Repeater county
+	"frequency": {}, // Repeater frequency
+	"mode":      {}, // Repeater operating mode (analog, DMR, NXDN, P25, tetra)
+	"emcomm":    {}, // ARES, RACES, SKYWARN, CANWARN
+	"stype":     {}, // Service type. Only required when searching for GMRS repeaters. ex: stype=gmrs
+}
+var repeaterbookResultFields = map[string]string{}
+
+// Put the RadioIDResult JSON field names in a map
+func init() {
+	st := reflect.TypeOf(RepeaterbookResult{})
+	for i := 0; i < st.NumField(); i++ {
+		field := st.Field(i)
+		tag := strings.Split(field.Tag.Get("json"), ",")[0]
+		if tag != "" {
+			repeaterbookResultFields[tag] = field.Name
+		} else {
+			repeaterbookResultFields[strings.ToLower(field.Name)] = field.Name
+		}
+	}
+}
+
+func QueryRepeaterbook(cp *Codeplug, filters filterFlags) (*RepeaterbookResults, error) {
 	var base = repeaterbookNA
-	// TODO: use repeaterbookROW outside North America
+	if !naRepeaterbookDB {
+		base = repeaterbookROW
+	}
 
 	baseURL, err := url.Parse(base)
 	if err != nil {
-		slog.Error("Error parsing base URL", "URL", base, "error", err)
+		fmt.Fprintf(os.Stderr, "Error parsing base URL %s: %v", base, err)
 		os.Exit(1)
 	}
 
+	// Filters to be applied on the results
+	var resultFilters filterFlags
+
 	// Query params
 	params := url.Values{}
-	params.Add("state", "Maine")
-	params.Add("county", "Cumberland")
+	for _, f := range filters {
+		_, ok := repeaterbookQueryParamNames[f.key]
+		if ok {
+			for _, v := range f.value {
+				params.Add(f.key, v)
+			}
+		} else {
+			_, ok := repeaterbookResultFields[f.key]
+			if ok {
+				resultFilters = append(resultFilters, f)
+			}
+		}
+	}
 	baseURL.RawQuery = params.Encode()
+	fmt.Fprintln(os.Stderr, baseURL.String())
 
 	req, err := http.NewRequest("GET", baseURL.String(), nil)
 	if err != nil {
-		slog.Error("Error creating HTTP request", "baseURL", baseURL.String(), "error", err)
+		fmt.Fprintf(os.Stderr, "Error creating HTTP request %s: %v", baseURL.String(), err)
 		os.Exit(1)
 	}
 	req.Header.Set("User-Agent", "dmrfill/0.1 github.com/jancona/dmrfill https://www.qrz.com/db/N1ADJ")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		slog.Error("Error executing HTTP request", "baseURL", baseURL.String(), "error", err)
+		fmt.Fprintf(os.Stderr, "Error executing HTTP request %s: %v", baseURL.String(), err)
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
-	slog.Info("response status", "status", resp.StatusCode)
+	// fmt.Fprintf(os.Stderr, "response status %d\n", resp.StatusCode)
 	decoder := json.NewDecoder(resp.Body)
 	result := RepeaterbookResults{
 		Results: []RepeaterbookResult{},
 	}
 	err = decoder.Decode(&result)
 	if err != nil {
-		slog.Error("Error parsing JSON response", "error", err)
+		fmt.Fprintf(os.Stderr, "Error parsing JSON response: %v", err)
 		os.Exit(1)
 	}
-	pretty.Println(result)
+	fmt.Fprintln(os.Stderr, "Found", result.Count, "results")
+	// Do client filtering
+	newResults := []RepeaterbookResult{}
+	for _, r := range result.Results {
+		f, err := strconv.ParseFloat(r.Frequency, 64)
+		if err == nil {
+			r.Band = band(f)
+		}
+		rv := reflect.ValueOf(r)
+		matchesAll := true
+		for _, filter := range resultFilters {
+			if !Matches(filter, rv) {
+				matchesAll = false
+				break
+			}
+		}
+		if matchesAll {
+			newResults = append(newResults, r)
+		}
+	}
+	result.Count = len(newResults)
+	result.Results = newResults
+	fmt.Fprintln(os.Stderr, result.Count, "results after filtering")
+	// pretty.Println(result)
+	return &result, nil
 }
 
 type RepeaterbookResults struct {
@@ -67,8 +138,8 @@ type RepeaterbookResult struct {
 	RptrID            string `json:"Rptr ID"`
 	Frequency         string `json:"Frequency"`
 	InputFreq         string `json:"Input Freq"`
-	Pl                string `json:"PL"`
-	Tsq               string `json:"TSQ"`
+	PL                string `json:"PL"`
+	TSQ               string `json:"TSQ"`
 	NearestCity       string `json:"Nearest City"`
 	Landmark          string `json:"Landmark"`
 	County            string `json:"County"`
@@ -107,4 +178,18 @@ type RepeaterbookResult struct {
 	YSFDSC            string `json:"YSF DSC"`
 	Notes             string `json:"Notes"`
 	LastUpdate        string `json:"Last Update"`
+	Band              string
+}
+
+func (r RepeaterbookResult) GetCallsign() string {
+	return r.Callsign
+}
+func (r RepeaterbookResult) GetCity() string {
+	return r.NearestCity
+}
+func (r RepeaterbookResult) GetFrequency() string {
+	return r.Frequency
+}
+func (r RepeaterbookResult) GetState() string {
+	return r.State
 }
