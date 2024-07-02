@@ -32,13 +32,7 @@ jobs:
       run: GOOS=linux GOARCH=arm64 go build -v -o dmrfill-linux-arm64
 
     - name: Build MacOS amd64
-      run: GOOS=darwin GOARCH=amd64 go build -v -o dmrfill-linux-amd64
+      run: GOOS=darwin GOARCH=amd64 go build -v -o dmrfill-darwin-amd64
 
     - name: Build MacOS arm64
-      run: GOOS=darwin GOARCH=arm64 go build -v -o dmrfill-linux-arm64
-
-    - name: Build Windows amd64
-      run: GOOS=windows GOARCH=amd64 go build -v -o dmrfill-linux-amd64
-
-    - name: Build Windows arm64
-      run: GOOS=windows GOARCH=arm64 go build -v -o dmrfill-linux-arm64
+      run: GOOS=darwin GOARCH=arm64 go build -v -o dmrfill-darwin-arm64
