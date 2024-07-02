@@ -62,6 +62,9 @@ func ReplaceArgs(in string, c RepeaterContext, tg *TalkGroup) string {
 		}
 	}
 	// fmt.Fprintf(os.Stderr, "in: %s, expanded: %s\n", in, b.String())
+	if b.Len() > nameLength {
+		return b.String()[:nameLength]
+	}
 	return b.String()
 }
 func band(freq float64) string {

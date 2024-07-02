@@ -59,6 +59,7 @@ var (
 	talkgroupsRequired bool
 	dmrQuery           bool
 	naRepeaterbookDB   bool
+	nameLength         int
 )
 
 func init() {
@@ -72,6 +73,7 @@ func init() {
 	flag.StringVar(&power, "power", "High", "Channel power setting, one of (Min Low Mid High Max)")
 	flag.BoolVar(&talkgroupsRequired, "tg", true, "Only include DMR repeaters that have talkgroups defined")
 	flag.BoolVar(&naRepeaterbookDB, "na", true, "Use North American Repeaterbook database. Set it to 'false' to query outside the US, Canada and Mexico.")
+	flag.IntVar(&nameLength, "name_lim", 16, "Length limit for generated names")
 }
 
 const (
