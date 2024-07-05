@@ -2,6 +2,7 @@ package main
 
 import (
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -375,7 +376,18 @@ func (z Zone) GetID() string {
 }
 
 type Tone struct {
-	CTCSS float64 `yaml:"ctcss"`
+	CTCSS float64 `yaml:"ctcss,omitempty"`
+	DCS   float64 `yaml:"dcs,omitempty"`
+}
+
+func (t *Tone) Set(val string) error {
+	var err error
+	if strings.HasPrefix(val, "D") {
+		t.DCS, err = strconv.ParseFloat(val[1:], 64)
+	} else if val != "" {
+		t.CTCSS, err = strconv.ParseFloat(val, 64)
+	}
+	return err
 }
 
 type Contact struct {
@@ -419,45 +431,48 @@ func (g GroupList) GetID() string {
 }
 
 type DefaultableInt struct {
-	Value   int
-	Default bool
+	Value    int
+	HasValue bool
 }
 
 func (di *DefaultableInt) UnmarshalYAML(n *yaml.Node) error {
 	var err error
-	// fmt.Fprintf(os.Stderr, "DefaultableInt, node %#v\n", n)
+	// logVeryVerbose("DefaultableInt, node %#v", n)
 	if n.Tag == "!default" {
-		di.Default = true
+		di.HasValue = false
 	} else {
+		di.HasValue = true
 		di.Value, err = strconv.Atoi(n.Value)
 	}
 	return err
 }
 
 func (di DefaultableInt) MarshalYAML() (interface{}, error) {
-	if di.Default {
+	// logVeryVerbose("DefaultableInt.MarshalYAML(): %#v", di)
+	if !di.HasValue {
 		return yaml.Node{Kind: 0x8, Style: 0x3, Tag: "!default"}, nil
 	}
 	return yaml.Node{Kind: 0x8, Style: 0x0, Tag: "!!int", Value: strconv.Itoa(di.Value)}, nil
 }
 
 type DefaultableString struct {
-	Value   string
-	Default bool
+	Value    string
+	HasValue bool
 }
 
 func (ds *DefaultableString) UnmarshalYAML(n *yaml.Node) error {
-	// fmt.Fprintf(os.Stderr, "DefaultableString, node %#v\n", n)
+	// logVeryVerbose("DefaultableString, node %#v", n)
 	if n.Tag == "!default" {
-		ds.Default = true
+		ds.HasValue = false
 	} else {
+		ds.HasValue = true
 		ds.Value = n.Value
 	}
 	return nil
 }
 
 func (ds DefaultableString) MarshalYAML() (interface{}, error) {
-	if ds.Default {
+	if !ds.HasValue {
 		return yaml.Node{Kind: yaml.ScalarNode, Style: 0x3, Tag: "!default"}, nil
 	}
 	return yaml.Node{Kind: yaml.ScalarNode, Style: 0x0, Tag: "!!str", Value: ds.Value}, nil

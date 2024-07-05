@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -46,7 +45,7 @@ func init() {
 	}
 }
 
-func QueryRadioID(cp *Codeplug, filters filterFlags) (*RadioIDResults, error) {
+func QueryRadioID(filters filterFlags) (*RadioIDResults, error) {
 	var base = radioIDURL
 
 	baseURL, err := url.Parse(base)
@@ -73,18 +72,23 @@ func QueryRadioID(cp *Codeplug, filters filterFlags) (*RadioIDResults, error) {
 		}
 	}
 	baseURL.RawQuery = params.Encode()
-	fmt.Fprintln(os.Stderr, baseURL.String())
+	logVerbose("RadioID URL %s", baseURL.String())
 	req, err := http.NewRequest("GET", baseURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "dmrfill/0.1 github.com/jancona/dmrfill https://www.qrz.com/db/N1ADJ")
-	resp, err := http.DefaultClient.Do(req)
+	req.Header.Set("User-Agent", "dmrfill/0.1 github.com/jancona/dmrfill n1adj@anconafamily.com")
+	req.Header.Set("Cache-Control", "max-age=3600") // Cache results for an hour
+	resp, err := cachingHttpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	fmt.Fprintf(os.Stderr, "response status %s\n", resp.Status)
+	if resp.Header.Get("X-From-Cache") == "1" {
+		logVerbose("using cached response")
+	}
+	logVeryVerbose("response status %s", resp.Status)
+	logVeryVerbose("response headers: %#v", resp.Header)
 	decoder := json.NewDecoder(resp.Body)
 	result := RadioIDResults{
 		Results: []RadioIDResult{},
@@ -93,7 +97,7 @@ func QueryRadioID(cp *Codeplug, filters filterFlags) (*RadioIDResults, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Fprintln(os.Stderr, "Found", result.Count, "results")
+	logVerbose("found %d results", result.Count)
 	// Do client filtering
 	newResults := []RadioIDResult{}
 	for _, r := range result.Results {
@@ -104,7 +108,8 @@ func QueryRadioID(cp *Codeplug, filters filterFlags) (*RadioIDResults, error) {
 		rv := reflect.ValueOf(r)
 		matchesAll := true
 		for _, filter := range resultFilters {
-			if !Matches(filter, rv) {
+			if !MatchesRadioID(filter, rv) {
+				logVeryVerbose("Repeater %v doesn't match filter %v", r, filter)
 				matchesAll = false
 				break
 			}
@@ -129,25 +134,31 @@ func QueryRadioID(cp *Codeplug, filters filterFlags) (*RadioIDResults, error) {
 				if err != nil {
 					return nil, fmt.Errorf("error parsing TalkGroup TimeSlot %s: %v", s[1], err)
 				}
+				name := s[4]
+				if len(name) > nameLength {
+					name = name[:nameLength]
+				}
 				r.TalkGroups = append(r.TalkGroups, TalkGroup{
 					Number:   id,
 					TimeSlot: ts,
-					Name:     s[4],
+					Name:     name,
 				})
 			}
 			if !talkgroupsRequired || len(r.TalkGroups) > 0 {
 				newResults = append(newResults, r)
+			} else {
+				logVerbose("Skipping repeater with no talkgroups: %v", r)
 			}
 		}
 	}
 	result.Count = len(newResults)
 	result.Results = newResults
-	fmt.Fprintln(os.Stderr, result.Count, "results after filtering")
+	logVerbose("%d results after filtering", result.Count)
 	// pretty.Println(result)
 	return &result, nil
 }
 
-func Matches(filter filter, rv reflect.Value) bool {
+func MatchesRadioID(filter filter, rv reflect.Value) bool {
 	val := rv.FieldByName(radioIDResultFields[filter.key]).String()
 	for _, fv := range filter.value {
 		if fv == val {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,11 +14,11 @@ import (
 // Examples: https://www.repeaterbook.com/api/export.php?state=Maine&county=Cumberland
 //           https://www.repeaterbook.com/api/export.php?qtype=prox&dunit=km&lat=44.551&lng=-69.632&dist=40
 
-const repeaterbookNA = "https://www.repeaterbook.com/api/export.php"
-const repeaterbookROW = "https://www.repeaterbook.com/api/exportROW.php"
+const repeaterBookNA = "https://www.repeaterbook.com/api/export.php"
+const repeaterBookROW = "https://www.repeaterbook.com/api/exportROW.php"
 
 // Supported query parameters
-var repeaterbookQueryParamNames = map[string]struct{}{
+var repeaterBookQueryParamNames = map[string]struct{}{
 	"callsign":  {}, // Repeater callsign
 	"city":      {}, // Repeater city
 	"landmark":  {}, //
@@ -31,31 +30,36 @@ var repeaterbookQueryParamNames = map[string]struct{}{
 	"emcomm":    {}, // ARES, RACES, SKYWARN, CANWARN
 	"stype":     {}, // Service type. Only required when searching for GMRS repeaters. ex: stype=gmrs
 }
-var repeaterbookResultFields = map[string]string{}
+var repeaterBookResultFields = map[string]string{}
 
 // Put the RadioIDResult JSON field names in a map
 func init() {
-	st := reflect.TypeOf(RepeaterbookResult{})
+	st := reflect.TypeOf(RepeaterBookResult{})
 	for i := 0; i < st.NumField(); i++ {
 		field := st.Field(i)
 		tag := strings.Split(field.Tag.Get("json"), ",")[0]
 		if tag != "" {
-			repeaterbookResultFields[tag] = field.Name
+			repeaterBookResultFields[strings.ToLower(tag)] = field.Name
 		} else {
-			repeaterbookResultFields[strings.ToLower(field.Name)] = field.Name
+			repeaterBookResultFields[strings.ToLower(field.Name)] = field.Name
 		}
 	}
 }
 
-func QueryRepeaterbook(cp *Codeplug, filters filterFlags) (*RepeaterbookResults, error) {
-	var base = repeaterbookNA
-	if !naRepeaterbookDB {
-		base = repeaterbookROW
+func QueryRepeaterBook(filters filterFlags) (*RepeaterBookResults, error) {
+	var base = repeaterBookNA
+	if !naRepeaterBookDB {
+		base = repeaterBookROW
 	}
-
+	if open {
+		filters.Set("use=OPEN")
+	}
+	if onAir {
+		filters.Set("operational_status=On-air")
+	}
 	baseURL, err := url.Parse(base)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing base URL %s: %v", base, err)
+		logError("Error parsing base URL %s: %v", base, err)
 		os.Exit(1)
 	}
 
@@ -65,46 +69,52 @@ func QueryRepeaterbook(cp *Codeplug, filters filterFlags) (*RepeaterbookResults,
 	// Query params
 	params := url.Values{}
 	for _, f := range filters {
-		_, ok := repeaterbookQueryParamNames[f.key]
-		if ok {
+		_, ok := repeaterBookQueryParamNames[f.key]
+		if ok && len(f.value) == 1 {
+			// RepeaterBook doesn't OR multiple filter parameters, it just uses the last one
 			for _, v := range f.value {
 				params.Add(f.key, v)
 			}
 		} else {
-			_, ok := repeaterbookResultFields[f.key]
+			_, ok := repeaterBookResultFields[f.key]
 			if ok {
 				resultFilters = append(resultFilters, f)
 			}
 		}
 	}
 	baseURL.RawQuery = params.Encode()
-	fmt.Fprintln(os.Stderr, baseURL.String())
+	logVerbose("RepeaterBook URL %s", baseURL.String())
 
 	req, err := http.NewRequest("GET", baseURL.String(), nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating HTTP request %s: %v", baseURL.String(), err)
+		logError("Error creating HTTP request %s: %v", baseURL.String(), err)
 		os.Exit(1)
 	}
-	req.Header.Set("User-Agent", "dmrfill/0.1 github.com/jancona/dmrfill https://www.qrz.com/db/N1ADJ")
-	resp, err := http.DefaultClient.Do(req)
+	req.Header.Set("User-Agent", "dmrfill/0.1 github.com/jancona/dmrfill n1adj@anconafamily.com")
+	req.Header.Set("Cache-Control", "max-age=3600") // Cache results for an hour
+	resp, err := cachingHttpClient.Do(req)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error executing HTTP request %s: %v", baseURL.String(), err)
+		logError("Error executing HTTP request %s: %v", baseURL.String(), err)
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
-	// fmt.Fprintf(os.Stderr, "response status %d\n", resp.StatusCode)
+	if resp.Header.Get("X-From-Cache") == "1" {
+		logVerbose("using cached response")
+	}
+	logVeryVerbose("response status %d", resp.StatusCode)
+	logVeryVerbose("response headers: %#v", resp.Header)
 	decoder := json.NewDecoder(resp.Body)
-	result := RepeaterbookResults{
-		Results: []RepeaterbookResult{},
+	result := RepeaterBookResults{
+		Results: []RepeaterBookResult{},
 	}
 	err = decoder.Decode(&result)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing JSON response: %v", err)
+		logError("Error parsing JSON response: %v", err)
 		os.Exit(1)
 	}
-	fmt.Fprintln(os.Stderr, "Found", result.Count, "results")
+	logVerbose("found %d results", result.Count)
 	// Do client filtering
-	newResults := []RepeaterbookResult{}
+	newResults := []RepeaterBookResult{}
 	for _, r := range result.Results {
 		f, err := strconv.ParseFloat(r.Frequency, 64)
 		if err == nil {
@@ -113,7 +123,7 @@ func QueryRepeaterbook(cp *Codeplug, filters filterFlags) (*RepeaterbookResults,
 		rv := reflect.ValueOf(r)
 		matchesAll := true
 		for _, filter := range resultFilters {
-			if !Matches(filter, rv) {
+			if !MatchesRepeaterBook(filter, rv) {
 				matchesAll = false
 				break
 			}
@@ -124,16 +134,27 @@ func QueryRepeaterbook(cp *Codeplug, filters filterFlags) (*RepeaterbookResults,
 	}
 	result.Count = len(newResults)
 	result.Results = newResults
-	fmt.Fprintln(os.Stderr, result.Count, "results after filtering")
+	logVerbose("%d results after filtering", result.Count)
 	// pretty.Println(result)
 	return &result, nil
 }
 
-type RepeaterbookResults struct {
-	Count   int                  `json:"count"`
-	Results []RepeaterbookResult `json:"results"`
+func MatchesRepeaterBook(filter filter, rv reflect.Value) bool {
+	val := rv.FieldByName(repeaterBookResultFields[filter.key]).String()
+	logVeryVerbose("filter %#v, val: %s", filter, val)
+	for _, fv := range filter.value {
+		if fv == val {
+			return true
+		}
+	}
+	return false
 }
-type RepeaterbookResult struct {
+
+type RepeaterBookResults struct {
+	Count   int                  `json:"count"`
+	Results []RepeaterBookResult `json:"results"`
+}
+type RepeaterBookResult struct {
 	StateID           string `json:"State ID"`
 	RptrID            string `json:"Rptr ID"`
 	Frequency         string `json:"Frequency"`
@@ -181,15 +202,15 @@ type RepeaterbookResult struct {
 	Band              string
 }
 
-func (r RepeaterbookResult) GetCallsign() string {
+func (r RepeaterBookResult) GetCallsign() string {
 	return r.Callsign
 }
-func (r RepeaterbookResult) GetCity() string {
+func (r RepeaterBookResult) GetCity() string {
 	return r.NearestCity
 }
-func (r RepeaterbookResult) GetFrequency() string {
+func (r RepeaterBookResult) GetFrequency() string {
 	return r.Frequency
 }
-func (r RepeaterbookResult) GetState() string {
+func (r RepeaterBookResult) GetState() string {
 	return r.State
 }

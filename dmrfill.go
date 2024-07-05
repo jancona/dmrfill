@@ -6,13 +6,36 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 
+	"github.com/gregjones/httpcache"
+	"github.com/gregjones/httpcache/diskcache"
 	"gopkg.in/yaml.v3"
 )
+
+var cachingHttpClient *http.Client
+
+func init() {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fatal("error accessing home directory: %v", err)
+	}
+	cacheDir := homeDir + "/.cache/dmrfill"
+	err = os.MkdirAll(cacheDir, 0755)
+	if err != nil {
+		fatal("error creating cache directory: %v", err)
+	}
+	cache := diskcache.New(cacheDir)
+	t := httpcache.NewTransport(cache)
+	t.MarkCachedResponses = true
+
+	cachingHttpClient = t.Client()
+}
 
 type filterFlags []filter
 
@@ -36,13 +59,14 @@ func (ff *filterFlags) Set(value string) error {
 		return errors.New("invalid filter expression '" + value + "'")
 	}
 	f := filter{
-		key:      m[0][1],
+		key:      strings.ReplaceAll(m[0][1], "_", " "),
 		rawValue: m[0][2],
 	}
 	m2 := valuesRegex.FindAllStringSubmatch(f.rawValue, -1)
 	for _, v := range m2 {
 		f.value = append(f.value, v[1])
 	}
+	// logVeryVerbose("filter.Set(%s) %#v", value, f)
 	*ff = append(*ff, f)
 	return nil
 }
@@ -58,8 +82,12 @@ var (
 	power              string
 	talkgroupsRequired bool
 	dmrQuery           bool
-	naRepeaterbookDB   bool
+	naRepeaterBookDB   bool
 	nameLength         int
+	open               bool
+	onAir              bool
+	verbose            bool
+	veryVerbose        bool
 )
 
 func init() {
@@ -69,20 +97,31 @@ func init() {
 	flag.Var(&filters, "f", "Filter clause of the form 'name=val1[,val2]...'")
 	flag.StringVar(&zonePattern, "zone", "$state_code $city:6 $callsign", "Pattern for forming DMR zone names, zone name for analog")
 	flag.StringVar(&glPattern, "gl", "", "Pattern for forming DMR group list names (default zone + ' $time_slot')")
-	flag.StringVar(&channelPattern, "ch", "$tg_name $tg_number $callsign $city", "Pattern for forming DMR channel names")
+	flag.StringVar(&channelPattern, "ch", "$tg_name:8 $tg_number $time_slot $callsign $city", "Pattern for forming DMR channel names")
 	flag.StringVar(&power, "power", "High", "Channel power setting, one of (Min Low Mid High Max)")
 	flag.BoolVar(&talkgroupsRequired, "tg", true, "Only include DMR repeaters that have talkgroups defined")
-	flag.BoolVar(&naRepeaterbookDB, "na", true, "Use North American Repeaterbook database. Set it to 'false' to query outside the US, Canada and Mexico.")
+	flag.BoolVar(&naRepeaterBookDB, "na", true, "Use North American RepeaterBook database. Set it to 'false' to query outside the US, Canada and Mexico.")
 	flag.IntVar(&nameLength, "name_lim", 16, "Length limit for generated names")
+	flag.BoolVar(&open, "open", true, "Only include open repeaters")
+	flag.BoolVar(&onAir, "on_air", true, "Only include on-air repeaters")
+	flag.BoolVar(&verbose, "v", false, "verbose logging")
+	flag.BoolVar(&veryVerbose, "vv", false, "more verbose logging")
 }
 
 const (
 	radioID      = "RADIOID"
-	repeaterbook = "REPEATERBOOK"
+	repeaterBook = "REPEATERBOOK"
 )
 
 func main() {
 	var codeplug Codeplug
+	for i, a := range os.Args {
+		if i == 0 {
+			logVerbose("%s", a)
+		} else {
+			logVerbose("    %s", a)
+		}
+	}
 
 	yamlReader, yamlWriter := parseArguments()
 	defer func() {
@@ -98,19 +137,50 @@ func main() {
 	// pretty.Println(codeplug)
 	switch datasource {
 	case radioID:
-		result, err := QueryRadioID(&codeplug, filters)
+		rbFilters := make(filterFlags, len(filters)+1)
+		copy(rbFilters, filters)
+		rbFilters.Set("mode=dmr")
+		repeaterList, err := QueryRepeaterBook(filters)
+		if err != nil {
+			fatal("error querying RepeaterBook: %v", err)
+		}
+		var b strings.Builder
+		b.WriteString("id=")
+		first := true
+		for _, r := range repeaterList.Results {
+			if r.DMRID == "" {
+				logVerbose("skipping repeater %s %s with empty DMRID", r.Callsign, r.Frequency)
+				continue
+			} else {
+				id, err := strconv.Atoi(r.DMRID)
+				if err != nil || id == 0 {
+					logVerbose("skipping repeater %s %s with invalid DMRID: %v", r.Callsign, r.Frequency, err)
+					continue
+				}
+			}
+			if !first {
+				b.WriteString(",")
+			}
+			b.WriteString(r.DMRID)
+			first = false
+		}
+		ridFilters := make(filterFlags, len(filters)+1)
+		copy(rbFilters, filters)
+		ridFilters.Set(b.String())
+
+		result, err := QueryRadioID(ridFilters)
 		if err != nil {
 			fatal("error querying RadioID: %v", err)
 		}
 		for _, repeater := range result.Results {
 			rxFreq, err := strconv.ParseFloat(repeater.Frequency, 64)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "skipping repeater with bad Frequency %s: %v\n", repeater.Frequency, err)
+				logError("skipping repeater with bad Frequency %s: %v", repeater.Frequency, err)
 				continue
 			}
 			offset, err := strconv.ParseFloat(repeater.Offset, 64)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "skipping repeater with bad Offset %s: %v\n", repeater.Offset, err)
+				logError("skipping repeater with bad Offset %s: %v", repeater.Offset, err)
 				continue
 			}
 			txFreq := rxFreq + offset
@@ -140,10 +210,10 @@ func main() {
 
 			for _, tg := range repeater.TalkGroups {
 				if tg.TimeSlot != 1 && tg.TimeSlot != 2 {
-					fmt.Fprintf(os.Stderr, "skipping invalid timeslot: %#v\n", tg)
+					logError("skipping invalid timeslot: %#v", tg)
 					continue
 				}
-				// fmt.Fprintf(os.Stderr, "%#v\n", tg)
+				// logVerbose("%#v", tg)
 				// for each repeater-talkgroup combo,
 				//   if no contact exists for the talkgroup,
 				//		 create it and add it to the proper group list
@@ -169,13 +239,10 @@ func main() {
 						TxFrequency: txFreq,
 						ColorCode:   repeater.ColorCode,
 						TimeSlot:    ts,
-						RadioID: DefaultableInt{
-							Default: true,
-						},
-						GroupList: glID,
-						Power:     DefaultableString{Value: power},
-						Contact:   c.DMR.ID,
-						Admit:     "Always",
+						GroupList:   glID,
+						Power:       DefaultableString{Value: power},
+						Contact:     c.DMR.ID,
+						Admit:       "Always",
 					},
 				}
 				// add it to the codeplug
@@ -185,10 +252,11 @@ func main() {
 			}
 		}
 
-	case repeaterbook:
-		result, err := QueryRepeaterbook(&codeplug, filters)
+	case repeaterBook:
+		filters.Set("mode=analog")
+		result, err := QueryRepeaterBook(filters)
 		if err != nil {
-			fatal("error querying Repeaterbook: %v", err)
+			fatal("error querying RepeaterBook: %v", err)
 		}
 		// create a Zone for the repeaters queried
 		zone := Zone{
@@ -200,26 +268,26 @@ func main() {
 		for _, repeater := range result.Results {
 			rxFreq, err := strconv.ParseFloat(repeater.Frequency, 64)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "skipping repeater with bad Frequency %s: %v\n", repeater.Frequency, err)
+				logError("skipping repeater with bad Frequency %s: %v", repeater.Frequency, err)
 				continue
 			}
 			txFreq, err := strconv.ParseFloat(repeater.InputFreq, 64)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "skipping repeater with bad InputFreq %s: %v\n", repeater.InputFreq, err)
+				logError("skipping repeater with bad InputFreq %s: %v", repeater.InputFreq, err)
 				continue
 			}
 			var rxTone, txTone Tone
 			if repeater.TSQ != "" {
-				rxTone.CTCSS, err = strconv.ParseFloat(repeater.TSQ, 64)
+				err = rxTone.Set(repeater.TSQ)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "skipping repeater with bad TSQ %s: %v\n", repeater.TSQ, err)
+					logError("skipping repeater with bad TSQ %s: %v", repeater.TSQ, err)
 					continue
 				}
 			}
 			if repeater.PL != "" {
-				txTone.CTCSS, err = strconv.ParseFloat(repeater.PL, 64)
+				err = txTone.Set(repeater.PL)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "skipping repeater with bad PL %s: %v\n", repeater.PL, err)
+					logError("skipping repeater with bad PL %s: %v", repeater.PL, err)
 					continue
 				}
 			}
@@ -314,11 +382,6 @@ func NewID(ids []IDer, defaultPrefix string) string {
 	return fmt.Sprint(prefix, lastNumber+1)
 }
 
-func fatal(msg string, args ...any) {
-	fmt.Fprintf(os.Stderr, msg+"\n", args...)
-	os.Exit(1)
-}
-
 func parseArguments() (io.ReadCloser, io.WriteCloser) {
 	flag.Parse()
 	var (
@@ -349,7 +412,7 @@ func parseArguments() (io.ReadCloser, io.WriteCloser) {
 	switch datasource {
 	case radioID:
 		dmrQuery = true
-	case repeaterbook:
+	case repeaterBook:
 		dmrQuery = false
 	default:
 		fatal("ds must be one of RADIOID or REPEATERBOOK")
@@ -360,7 +423,6 @@ func parseArguments() (io.ReadCloser, io.WriteCloser) {
 			fatal("zone is required for analog datasources")
 		}
 		if channelPattern == flag.Lookup("ch").DefValue {
-
 			channelPattern = "$callsign $city"
 		}
 	}
@@ -388,4 +450,29 @@ func ToSliceOfIDer[T IDer](s []T) []IDer {
 		result[i] = v
 	}
 	return result
+}
+
+func fatal(f string, args ...any) {
+	fmt.Fprintf(os.Stderr, f+"\n", args...)
+	os.Exit(1)
+}
+
+func logError(f string, args ...any) {
+	fmt.Fprintf(os.Stderr, f+"\n", args...)
+}
+
+func logInfo(f string, args ...any) {
+	fmt.Fprintf(os.Stderr, f+"\n", args...)
+}
+
+func logVerbose(f string, args ...any) {
+	if verbose || veryVerbose {
+		fmt.Fprintf(os.Stderr, f+"\n", args...)
+	}
+}
+
+func logVeryVerbose(f string, args ...any) {
+	if veryVerbose {
+		fmt.Fprintf(os.Stderr, f+"\n", args...)
+	}
 }

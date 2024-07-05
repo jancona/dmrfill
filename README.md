@@ -1,14 +1,11 @@
-# dmrfill - Fill codeplus with repeater data
+# dmrfill - Fill QDMR/dmrconf codeplugs with repeater data
 
-## Usage
-
-`ds` Repeater data source, either RADIOID or REPEATERBOOK
 
 ## How it works
 
 Start with a `QDMR` codeplug YAML file for your radio as a base. Use `dmrfill` to populate it with repeater data gathered from external sources.
 
-Source YAML comes from `QDMR`/dmrconf. Each invocation of `dmrfill` does a query to an external source of repeater data, creates codeplug entries like channels, zones, callgroups, etc. and merges them into the source YAML. `dmrfill` can be run in a pipeline to assemble a codeplug from a variety of sources, like Repeaterbook, RadioID, or user-supplied files (format TBD). The output YAML can be loaded into `QDMR` or piped into `dmrconf`.
+Source YAML comes from `QDMR`/dmrconf. Each invocation of `dmrfill` does a query to an external source of repeater data, creates codeplug entries like channels, zones, callgroups, etc. and merges them into the source YAML. `dmrfill` can be run in a pipeline to assemble a codeplug from a variety of sources, like RepeaterBook, RadioID, or user-supplied files (format TBD). The output YAML can be loaded into `QDMR` or piped into `dmrconf`.
 
 
 
@@ -16,8 +13,12 @@ Query data sources for repeater info. Sample queries
 
 * Get all DMR repeaters, for a country
 
+## Usage
 
-### Repeaterbook API
+`ds` Repeater data source, either RADIOID or REPEATERBOOK
+
+
+### RepeaterBook API
 
 US, Canada, Mexico URL: https://www.repeaterbook.com/api/export.php?state=Maine
 

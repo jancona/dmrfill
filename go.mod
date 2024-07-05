@@ -3,14 +3,15 @@ module github.com/jancona/dmrfill
 go 1.22.3
 
 require (
-	github.com/fatih/color v1.17.0 // indirect
-	github.com/goccy/go-yaml v1.11.3 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
-	github.com/kr/text v0.2.0 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/rogpeppe/go-internal v1.12.0 // indirect
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
+	gopkg.in/yaml.v3 v3.0.1
 )
+
+require (
+	github.com/google/btree v1.1.2 // indirect
+	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
+)
+
+replace github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 => github.com/m4ns0ur/httpcache v0.0.0-20200426190423-1040e2e8823f
+
+// replace github.com/gregjones/httpcache => ../httpcache
