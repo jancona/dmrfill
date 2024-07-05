@@ -1,4 +1,8 @@
-# dmrfill - Fill QDMR/dmrconf codeplugs with repeater data
+# dmrfill - Fill codeplugs with repeater data
+
+When I first got my DMR radio, I found the whole process around codeplus very frustrating. Even if your local area repeater group maintains a codeplug, as soon as you travel you're back to trying to find a codeplug with the area repeaters or at least locate repeater and talkgroup data so you can build your own.
+
+`dmrfill` trys to solve this problem by gathering repeater data and adding it an exiting codeplug. So, you start with a minimal codeplug
 
 
 ## How it works

@@ -26,13 +26,77 @@ jobs:
       run: go test -v ./...
 
     - name: Build Linux amd64
-      run: GOOS=linux GOARCH=amd64 go build -v -o dmrfill-linux-amd64
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o dmrfill_linux_amd64
 
     - name: Build Linux arm64
-      run: GOOS=linux GOARCH=arm64 go build -v -o dmrfill-linux-arm64
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o dmrfill_linux_arm64
 
     - name: Build MacOS amd64
-      run: GOOS=darwin GOARCH=amd64 go build -v -o dmrfill-darwin-amd64
+      run: CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -v -o dmrfill_darwin_amd64
 
     - name: Build MacOS arm64
-      run: GOOS=darwin GOARCH=arm64 go build -v -o dmrfill-darwin-arm64
+      run: CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -v -o dmrfill_darwin_arm64
+
+    - id: new_version
+      uses: paulhatch/semantic-version@v3
+      with:
+        branch: "master"
+        tag_prefix: "v"
+        # A string which, if present in a git commit, indicates that a change represents a
+        # major (breaking) change
+        major_pattern: "(MAJOR)"
+        # Same as above except indicating a minor change
+        minor_pattern: "(minor)"
+        # A string to determine the format of the version output
+        format: "${major}.${minor}.${patch}"
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.new_version.outputs.version }}
+        release_name: Release v${{ steps.new_version.outputs.version }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Linux/amd64 Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dmrfill_linux_amd64
+        asset_name: dmrfill_linux_amd64
+        asset_content_type: application/octet-stream
+
+    - name: Upload MacOS/amd64 Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dmrfill_macos_amd64
+        asset_name: dmrfill_macos_amd64
+        asset_content_type: application/octet-stream
+
+    - name: Upload Linux/arm Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dmrfill_linux_arm
+        asset_name: dmrfill_linux_arm
+        asset_content_type: application/octet-stream
+
+    - name: Upload Linux/arm64 Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dmrfill_linux_arm64
+        asset_name: dmrfill_linux_arm64
+        asset_content_type: application/octet-stream
