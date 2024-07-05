@@ -51,7 +51,7 @@ jobs:
         # Same as above except indicating a minor change
         minor_pattern: "(MINOR)"
         # A string to determine the format of the version output
-        format: "${major}.${minor}.${patch}"
+        version_format: "${major}.${minor}.${patch}"
 
     - name: Create Release
       id: create_release
