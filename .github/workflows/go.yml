@@ -83,7 +83,7 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./dmrfill_linux_arm64
-        asset_name: dmrfill_linux_amd64
+        asset_name: dmrfill_linux_arm64
         asset_content_type: application/octet-stream
 
     - name: Upload Linux/arm Release Asset
@@ -93,7 +93,7 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./dmrfill_linux_arm
-        asset_name: dmrfill_linux_amd
+        asset_name: dmrfill_linux_arm
         asset_content_type: application/octet-stream
 
     - name: Upload MacOS/amd64 Release Asset
