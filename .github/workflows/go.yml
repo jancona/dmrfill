@@ -76,14 +76,14 @@ jobs:
         asset_name: dmrfill_linux_amd64
         asset_content_type: application/octet-stream
 
-    - name: Upload MacOS/amd64 Release Asset
+    - name: Upload Linux/arm64 Release Asset
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dmrfill_macos_amd64
-        asset_name: dmrfill_macos_amd64
+        asset_path: ./dmrfill_linux_arm64
+        asset_name: dmrfill_linux_amd64
         asset_content_type: application/octet-stream
 
     - name: Upload Linux/arm Release Asset
@@ -93,15 +93,25 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./dmrfill_linux_arm
-        asset_name: dmrfill_linux_arm
+        asset_name: dmrfill_linux_amd
         asset_content_type: application/octet-stream
 
-    - name: Upload Linux/arm64 Release Asset
+    - name: Upload MacOS/amd64 Release Asset
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dmrfill_linux_arm64
-        asset_name: dmrfill_linux_arm64
+        asset_path: ./dmrfill_darwin_amd64
+        asset_name: dmrfill_darwin_amd64
+        asset_content_type: application/octet-stream
+
+    - name: Upload MacOS/arm64 Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dmrfill_darwin_arm64
+        asset_name: dmrfill_darwin_arm64
         asset_content_type: application/octet-stream
