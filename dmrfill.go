@@ -93,7 +93,7 @@ var (
 func init() {
 	flag.StringVar(&inFile, "in", "", "Input QDMR Codeplug YAML file (default STDIN)")
 	flag.StringVar(&outFile, "out", "", "Output QDMR Codeplug YAML file (default STDOUT)")
-	flag.StringVar(&datasource, "ds", "", "Repeater data source, either RADIOID or REPEATERBOOK (required)")
+	flag.StringVar(&datasource, "ds", "", "Repeater data source, either RADIOID_DMR or REPEATERBOOK_FM (required)")
 	flag.Var(&filters, "f", "Filter clause of the form 'name=val1[,val2]...'")
 	flag.StringVar(&zonePattern, "zone", "$state_code $city:6 $callsign", "Pattern for forming DMR zone names, zone name for analog")
 	flag.StringVar(&glPattern, "gl", "", "Pattern for forming DMR group list names (default zone + ' $time_slot')")
@@ -109,8 +109,8 @@ func init() {
 }
 
 const (
-	radioID      = "RADIOID"
-	repeaterBook = "REPEATERBOOK"
+	radioID      = "RADIOID_DMR"
+	repeaterBook = "REPEATERBOOK_FM"
 )
 
 func main() {
@@ -208,6 +208,7 @@ func main() {
 			}
 			codeplug.GroupLists = append(codeplug.GroupLists, &gl2)
 
+			logVeryVerbose("repeater.TalkGroups: %#v", repeater.TalkGroups)
 			for _, tg := range repeater.TalkGroups {
 				if tg.TimeSlot != 1 && tg.TimeSlot != 2 {
 					logError("skipping invalid timeslot: %#v", tg)
@@ -227,6 +228,10 @@ func main() {
 					gl2.Contacts = append(gl2.Contacts, c.DMR.ID)
 					glID = gl2.ID
 				}
+				// Always use the contact name as the TG name. That way names are
+				// consistent and users can control the name that appears by editing
+				// the contact name, which is unique for each TG number.
+				tg.Name = c.DMR.Name
 
 				//   create a channel for the combo
 				channelName := ReplaceArgs(channelPattern, repeater, &tg)
@@ -415,7 +420,7 @@ func parseArguments() (io.ReadCloser, io.WriteCloser) {
 	case repeaterBook:
 		dmrQuery = false
 	default:
-		fatal("ds must be one of RADIOID or REPEATERBOOK")
+		fatal("ds must be one of RADIOID_DMR or REPEATERBOOK_FM")
 	}
 
 	if !dmrQuery {
