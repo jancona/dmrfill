@@ -18,6 +18,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const userAgent = "dmrfill/0.1 github.com/jancona/dmrfill n1adj@anconafamily.com"
+
 var cachingHttpClient *http.Client
 
 func init() {

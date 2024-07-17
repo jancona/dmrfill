@@ -71,7 +71,7 @@ In the case of analog FM zone names, all repeaters go into the specified zone, s
 
 ### Pipelines
 
-`dmrfill` can be run in a pipeline to assemble a codeplug from a variety of sources.  The output YAML can be loaded to the radio using `QDMR` or `dmrconf`.
+`dmrfill` can accept input from a file (using the `-in` argument) or from `stdin`. It can output to a file (using the `-out` argument) or to `stdout`. So it can be run in a pipeline to assemble a codeplug from a variety of sources. The first invocation uses `-in` to read from a base file, then the output is piped to additional instances of `dmrfill` to add more repeaters. The final instance uses `-out` to write to an output file which can be loaded to the radio using `QDMR` or `dmrconf`.
 
 ## Command Line Options
 

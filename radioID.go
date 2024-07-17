@@ -77,7 +77,7 @@ func QueryRadioID(filters filterFlags) (*RadioIDResults, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "dmrfill/0.1 github.com/jancona/dmrfill n1adj@anconafamily.com")
+	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Cache-Control", "max-age=3600") // Cache results for an hour
 	resp, err := cachingHttpClient.Do(req)
 	if err != nil {
