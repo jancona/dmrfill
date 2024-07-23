@@ -97,9 +97,14 @@ In the case of analog FM zone names, all repeaters go into the specified zone, s
   -out string
     	Output QDMR Codeplug YAML file (default STDOUT)
   -power string
-    	Channel power setting, one of (Min Low Mid High Max) (default "High")
+    	Channel power setting, one of ('Min' 'Low' 'Mid' 'High' 'Max') (default "High")
   -tg
     	Only include DMR repeaters that have talkgroups defined (default true)
+  -tg_source string
+    	One of ('most' 'rfinder' 'details').
+    	RadioID has two fields that may contain talkgroup info, 'details' and 'rfinder'.
+    	By default dmrfill uses the data from whichever field has the most talkgroups defined.
+    	Selecting 'rfinder' or 'details' uses the named field. (default "most")
   -v	verbose logging
   -vv
     	more verbose logging

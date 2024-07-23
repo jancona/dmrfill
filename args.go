@@ -67,6 +67,7 @@ func ReplaceArgs(in string, c RepeaterContext, tg *TalkGroup) string {
 	// logVerbose("in: %s, expanded: %s", in, b.String())
 	return b.String()
 }
+
 func band(freq float64) string {
 	switch {
 	case freq >= 28.0 && freq <= 29.7:

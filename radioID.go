@@ -16,7 +16,7 @@ import (
 // Example: https://radioid.net/api/dmr/repeater/?state=Maine
 const radioIDURL = "https://radioid.net/api/dmr/repeater/"
 
-var talkGroupRegex = regexp.MustCompile(`Time Slot # (\d) [-=] Group Call (\d+)(\s*[-=]\s*([^"<>]*))?`)
+var talkGroupRegex = regexp.MustCompile(`Time Slot # ?(\d) [-=] Group Call (\d+)(\s*[-=]\s*([^"<>]*))?`)
 var lastUpdatedRegex = regexp.MustCompile(`Last Update: (\d+-\d+-\d+ \d+:\d+:\d+)`)
 
 // Supported query parameters
@@ -123,7 +123,8 @@ func QueryRadioID(filters filterFlags) (*RadioIDResults, error) {
 					return nil, fmt.Errorf("error parsing LastUpdated %s: %v", m[0][1], err)
 				}
 			}
-			// Parse talk groups
+			// Parse talk groups from rfinder field
+			var rfinderTGs, detailsTGs []TalkGroup
 			m = talkGroupRegex.FindAllStringSubmatch(r.Rfinder, -1)
 			for _, s := range m {
 				id, err := strconv.Atoi(s[2])
@@ -138,11 +139,56 @@ func QueryRadioID(filters filterFlags) (*RadioIDResults, error) {
 				if len(name) > nameLength {
 					name = name[:nameLength]
 				}
-				r.TalkGroups = append(r.TalkGroups, TalkGroup{
-					Number:   id,
-					TimeSlot: ts,
-					Name:     name,
-				})
+				if ts == 1 || ts == 2 {
+					rfinderTGs = append(rfinderTGs, TalkGroup{
+						Number:   id,
+						TimeSlot: ts,
+						Name:     name,
+					})
+				} else {
+					logVerbose("Skipping rfinder talkgroup #%d: %s, bad timeslot %d", id, name, ts)
+				}
+			}
+			// Parse talk groups from details field
+			m = talkGroupRegex.FindAllStringSubmatch(r.Details, -1)
+			for _, s := range m {
+				id, err := strconv.Atoi(s[2])
+				if err != nil {
+					return nil, fmt.Errorf("error parsing TalkGroup ID %s: %v", s[2], err)
+				}
+				ts, err := strconv.Atoi(s[1])
+				if err != nil {
+					return nil, fmt.Errorf("error parsing TalkGroup TimeSlot %s: %v", s[1], err)
+				}
+				name := s[4]
+				if len(name) > nameLength {
+					name = name[:nameLength]
+				}
+				if ts == 1 || ts == 2 {
+					detailsTGs = append(detailsTGs, TalkGroup{
+						Number:   id,
+						TimeSlot: ts,
+						Name:     name,
+					})
+				} else {
+					logVerbose("Skipping details talkgroup #%d: %s, bad timeslot %d", id, name, ts)
+				}
+			}
+			logVerbose("Count - rfinderTGs: %d,\tdetailsTGs: %d", len(rfinderTGs), len(detailsTGs))
+			// logVerbose("rfinderTGs: %#v", rfinderTGs)
+			// logVerbose("detailsTGs: %#v", detailsTGs)
+
+			switch tgSource {
+			case "most":
+				if len(rfinderTGs) >= len(detailsTGs) {
+					r.TalkGroups = rfinderTGs
+				} else {
+					r.TalkGroups = detailsTGs
+				}
+			case "rfinder":
+				r.TalkGroups = rfinderTGs
+			case "details":
+				r.TalkGroups = detailsTGs
 			}
 			if !talkgroupsRequired || len(r.TalkGroups) > 0 {
 				newResults = append(newResults, r)

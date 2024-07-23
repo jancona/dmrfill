@@ -88,6 +88,7 @@ var (
 	nameLength         int
 	open               bool
 	onAir              bool
+	tgSource           string
 	verbose            bool
 	veryVerbose        bool
 )
@@ -100,12 +101,17 @@ func init() {
 	flag.StringVar(&zonePattern, "zone", "$state_code $city:6 $callsign", "Pattern for forming DMR zone names, zone name for analog")
 	flag.StringVar(&glPattern, "gl", "", "Pattern for forming DMR group list names (default zone + ' $time_slot')")
 	flag.StringVar(&channelPattern, "ch", "$tg_name:8 $tg_number $time_slot $callsign $city", "Pattern for forming DMR channel names")
-	flag.StringVar(&power, "power", "High", "Channel power setting, one of (Min Low Mid High Max)")
+	flag.StringVar(&power, "power", "High", "Channel power setting, one of ('Min' 'Low' 'Mid' 'High' 'Max')")
 	flag.BoolVar(&talkgroupsRequired, "tg", true, "Only include DMR repeaters that have talkgroups defined")
 	flag.BoolVar(&naRepeaterBookDB, "na", true, "Use North American RepeaterBook database. Set it to 'false' to query outside the US, Canada and Mexico.")
 	flag.IntVar(&nameLength, "name_lim", 16, "Length limit for generated names")
 	flag.BoolVar(&open, "open", true, "Only include open repeaters")
 	flag.BoolVar(&onAir, "on_air", true, "Only include on-air repeaters")
+	flag.StringVar(&tgSource, "tg_source", "most",
+		`One of ('most' 'rfinder' 'details').
+RadioID has two fields that may contain talkgroup info, 'details' and 'rfinder'.
+By default dmrfill uses the data from whichever field has the most talkgroups defined.
+Selecting 'rfinder' or 'details' uses the named field.`)
 	flag.BoolVar(&verbose, "v", false, "verbose logging")
 	flag.BoolVar(&veryVerbose, "vv", false, "more verbose logging")
 }
@@ -444,6 +450,14 @@ func parseArguments() (io.ReadCloser, io.WriteCloser) {
 	default:
 		fatal("power must be one of (Min Low Mid High Max)")
 	}
+
+	switch tgSource {
+	case "most", "rfinder", "details":
+		// good
+	default:
+		fatal("tg_source must be one of (most rfinder details)")
+	}
+
 	return yamlReader, yamlWriter
 }
 
