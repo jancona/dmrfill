@@ -18,9 +18,31 @@ This example starts with a base codeplug (`base.codeplug.yaml`) containing basic
 
 The `|` character sends the resulting codeplug to a second run of dmrfill. This one queries Repeaterbook for FM repeaters also in the 2m and 70cm bands in the Maine counties of York, Cumberland, Sagadahoc, Oxford, Androscoggin. It places the repeaters that matches the criteria in a zone named _ME W Analog_ and writes the codeplug in the file `maine.codeplug.yaml`. That file can be edited further with `QDMR` or written to the radio with `QDMR` or `dmrconf`.
 
+## Supported Radios
+
+Because `dmrfill` uses codeplugs read and written by `QDMR` or `dmrconf`, it should work with any radio supported by those programs. As of this writing, that includes:
+
+* Open GD77 firmware
+* Radioddity GD77
+* Radioddity GD73
+* Baofeng/Radioddity RD-5R & RD-5R+
+* TYT MD-390 / Retevis RT8
+* TYT MD-UV380
+* TYT MD-UV390 / Retevis RT3S
+* TYT MD-2017 / Retevis RT82
+* Anytone AT-D878UV
+* Anytone AT-D868UVE
+* Anytone AT-D878UVII
+* Anytone AT-D578UV
+* BTECH DM-1701 / Retevis RT84
+* BTECH BF-1801A6
+* BTECH DMR-6x2
+
+Check the QDMR [Github project](https://github.com/hmatuschek/qdmr?tab=readme-ov-file#supported-radios) for the current list.
+
 ## More about how it works
 
-You need a `QDMR` codeplug YAML file for your radio as a base. So start at the [excellent `QDMR` website](https://dm3mat.darc.de/qdmr/) to see if your radio is supported and read about installing and getting started. Once you have `QDMR` running, you can read a working codeplug from your radio and delete the channels, callgroups and zones that you don't want to be in every codeplug you create. That is, leave things that should be in all codeplugs, like simplex channels and zones, but remove the rest. The source codeplug YAML is specified using the `-in` argument. If it's not provided, `dmrfill` expects to read it from `stdin`.
+You need a `QDMR` codeplug YAML file for your radio as a base. So start at the [excellent `QDMR` website](https://dm3mat.darc.de/qdmr/) to read about installing and getting started. Once you have `QDMR` running, you can read a working codeplug from your radio and delete the channels, callgroups and zones that you don't want to be in every codeplug you create. That is, leave things that should be in all codeplugs, like simplex channels and zones, but remove the rest. The source codeplug YAML is specified using the `-in` argument. If it's not provided, `dmrfill` expects to read it from `stdin`.
 
 Each invocation of `dmrfill` does a query to an external source of repeater data, then creates codeplug entries like channels, zones, group lists and contacts in a customizable way. It then merges them into the source codeplug and outputs the updated YAML.
 
