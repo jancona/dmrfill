@@ -284,8 +284,8 @@ type Codeplug struct {
 	RoamingChannels []struct {
 		ID          string                 `yaml:"id"`
 		Name        string                 `yaml:"name"`
-		RxFrequency float64                `yaml:"rxFrequency"`
-		TxFrequency float64                `yaml:"txFrequency"`
+		RxFrequency string                 `yaml:"rxFrequency"`
+		TxFrequency string                 `yaml:"txFrequency"`
 		Additional  map[string]interface{} `yaml:",inline"` // Any new keys will show up here to be roundtripped
 	} `yaml:"roamingChannels,omitempty"`
 	RoamingZones []struct {
@@ -317,8 +317,8 @@ func (c Channel) GetID() string {
 type Digital struct {
 	ID          string         `yaml:"id"`
 	Name        string         `yaml:"name"`
-	RxFrequency float64        `yaml:"rxFrequency"`
-	TxFrequency float64        `yaml:"txFrequency"`
+	RxFrequency string         `yaml:"rxFrequency"`
+	TxFrequency string         `yaml:"txFrequency"`
 	RxOnly      bool           `yaml:"rxOnly"`
 	Admit       string         `yaml:"admit"`
 	ColorCode   int            `yaml:"colorCode"`
@@ -349,8 +349,8 @@ type Digital struct {
 type Analog struct {
 	ID          string                 `yaml:"id"`
 	Name        string                 `yaml:"name"`
-	RxFrequency float64                `yaml:"rxFrequency"`
-	TxFrequency float64                `yaml:"txFrequency"`
+	RxFrequency string                 `yaml:"rxFrequency"`
+	TxFrequency string                 `yaml:"txFrequency"`
 	RxOnly      bool                   `yaml:"rxOnly"`
 	Admit       string                 `yaml:"admit"`
 	Bandwidth   string                 `yaml:"bandwidth"`
