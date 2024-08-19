@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,6 +18,8 @@ import (
 const repeaterBookNA = "https://www.repeaterbook.com/api/export.php"
 const repeaterBookROW = "https://www.repeaterbook.com/api/exportROW.php"
 
+const kmPerMile = 1.609344
+
 // Supported query parameters
 var repeaterBookQueryParamNames = map[string]struct{}{
 	"callsign":  {}, // Repeater callsign
@@ -30,9 +33,20 @@ var repeaterBookQueryParamNames = map[string]struct{}{
 	"emcomm":    {}, // ARES, RACES, SKYWARN, CANWARN
 	"stype":     {}, // Service type. Only required when searching for GMRS repeaters. ex: stype=gmrs
 }
+
+// Supported proximity query parameters
+var repeaterBookProxQueryParamNames = map[string]struct{}{
+	"qtype": {}, // Proximity search "prox"
+	"lat":   {}, // Proximity search latitude
+	"lng":   {}, // Proximity search longitude
+	"dist":  {}, // Proximity search distance
+	"dunit": {}, // Proximity search distance units (km, ?)
+}
+
+// RepeaterBookResult JSON field names
 var repeaterBookResultFields = map[string]string{}
 
-// Put the RadioIDResult JSON field names in a map
+// Put the RepeaterBookResult JSON field names in a map
 func init() {
 	st := reflect.TypeOf(RepeaterBookResult{})
 	for i := 0; i < st.NumField(); i++ {
@@ -57,6 +71,27 @@ func QueryRepeaterBook(filters filterFlags) (*RepeaterBookResults, error) {
 	if onAir {
 		filters.Set("operational_status=On-air")
 	}
+	if location != "" {
+		// Do a proximity search
+		gResult, err := QueryGeonames(location)
+		if err != nil {
+			logError("Error reverse geocoding location '%s': %v", location, err)
+			os.Exit(1)
+		}
+		if gResult.TotalResultsCount < 1 {
+			logError("No location found for '%s'", location)
+			os.Exit(1)
+		}
+		if radiusUnits == "miles" {
+			radius = radius * kmPerMile
+		}
+		filters.Set("qtype=prox")
+		filters.Set("dunit=km")
+		filters.Set(fmt.Sprintf("dist=%f", radius))
+		filters.Set(fmt.Sprintf("lat=%s", gResult.Geonames[0].Lat))
+		filters.Set(fmt.Sprintf("lng=%s", gResult.Geonames[0].Lng))
+	}
+
 	baseURL, err := url.Parse(base)
 	if err != nil {
 		logError("Error parsing base URL %s: %v", base, err)
@@ -69,16 +104,31 @@ func QueryRepeaterBook(filters filterFlags) (*RepeaterBookResults, error) {
 	// Query params
 	params := url.Values{}
 	for _, f := range filters {
-		_, ok := repeaterBookQueryParamNames[f.key]
-		if ok && len(f.value) == 1 {
-			// RepeaterBook doesn't OR multiple filter parameters, it just uses the last one
-			for _, v := range f.value {
-				params.Add(f.key, v)
+		if location == "" {
+			_, ok := repeaterBookQueryParamNames[f.key]
+			if ok && len(f.value) == 1 {
+				// RepeaterBook doesn't OR multiple filter parameters, it just uses the last one
+				// for _, v := range f.value {
+				params.Add(f.key, f.value[0])
+				// }
+			} else {
+				_, ok := repeaterBookResultFields[f.key]
+				if ok {
+					resultFilters = append(resultFilters, f)
+				}
 			}
 		} else {
-			_, ok := repeaterBookResultFields[f.key]
-			if ok {
-				resultFilters = append(resultFilters, f)
+			_, ok := repeaterBookProxQueryParamNames[f.key]
+			if ok && len(f.value) == 1 {
+				// RepeaterBook doesn't OR multiple filter parameters, it just uses the last one
+				// for _, v := range f.value {
+				params.Add(f.key, f.value[0])
+				// }
+			} else {
+				_, ok := repeaterBookResultFields[f.key]
+				if ok {
+					resultFilters = append(resultFilters, f)
+				}
 			}
 		}
 	}

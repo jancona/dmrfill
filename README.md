@@ -108,6 +108,8 @@ In the case of analog FM zone names, all repeaters go into the specified zone, s
     	Pattern for forming DMR group list names (default zone + ' $time_slot')
   -in string
     	Input QDMR Codeplug YAML file (default STDIN)
+  -loc string
+    	Center location for proximity search, e.g. 'Bangor, ME', 'München'
   -na
     	Use North American RepeaterBook database. Set it to 'false' to query outside the US, Canada and Mexico. (default true)
   -name_lim int
@@ -120,6 +122,8 @@ In the case of analog FM zone names, all repeaters go into the specified zone, s
     	Output QDMR Codeplug YAML file (default STDOUT)
   -power string
     	Channel power setting, one of ('Min' 'Low' 'Mid' 'High' 'Max') (default "High")
+  -radius float
+    	Radius for proximity search (default 25)
   -tg
     	Only include DMR repeaters that have talkgroups defined (default true)
   -tg_source string
@@ -127,6 +131,8 @@ In the case of analog FM zone names, all repeaters go into the specified zone, s
     	RadioID has two fields that may contain talkgroup info, 'details' and 'rfinder'.
     	By default dmrfill uses the data from whichever field has the most talkgroups defined.
     	Selecting 'rfinder' or 'details' uses the named field. (default "most")
+  -units string
+    	Distance units for proximity search, one of ('miles' 'km') (default "miles")
   -v	verbose logging
   -vv
     	more verbose logging
@@ -143,9 +149,7 @@ In the case of analog FM zone names, all repeaters go into the specified zone, s
 [RadioID](https://radioid.net/) issues DMR and NXDN ID's. It also maintains a DMR repeater database that includes talkgroup information. The [site](https://radioid.net/) also includes a repeater map and contact generator tool.
 
 ### QDMR
-[QDMR](https://dm3mat.darc.de/qdmr/) is the open source tool that inspired `dmrfill`. Bydefining and documenting a codeplug standard file format, along with tools for reading, writing and editing them, QDMR made `dmrfill` possible.
+[QDMR](https://dm3mat.darc.de/qdmr/) is the open source tool that inspired `dmrfill`. By defining and documenting a codeplug standard file format, along with tools for reading, writing and editing them, QDMR made `dmrfill` possible.
 
-<!--
 ### Geonames
-
--->
+[Geonames](https://www.geonames.org/) provides a geographical database that covers all countries and contains over eleven million placenames that are available for download free of charge. `dmrfill` uses their API to convert placenames to longitude/latitude in order to do proximity queries.

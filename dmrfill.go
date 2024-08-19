@@ -89,6 +89,9 @@ var (
 	open               bool
 	onAir              bool
 	tgSource           string
+	location           string
+	radius             float64
+	radiusUnits        string
 	verbose            bool
 	veryVerbose        bool
 )
@@ -112,6 +115,9 @@ func init() {
 RadioID has two fields that may contain talkgroup info, 'details' and 'rfinder'.
 By default dmrfill uses the data from whichever field has the most talkgroups defined.
 Selecting 'rfinder' or 'details' uses the named field.`)
+	flag.StringVar(&location, "loc", "", "Center location for proximity search, e.g. 'Bangor, ME', 'München'")
+	flag.Float64Var(&radius, "radius", 25, "Radius for proximity search")
+	flag.StringVar(&radiusUnits, "units", "miles", "Distance units for proximity search, one of ('miles' 'km')")
 	flag.BoolVar(&verbose, "v", false, "verbose logging")
 	flag.BoolVar(&veryVerbose, "vv", false, "more verbose logging")
 }
@@ -456,6 +462,17 @@ func parseArguments() (io.ReadCloser, io.WriteCloser) {
 		// good
 	default:
 		fatal("tg_source must be one of (most rfinder details)")
+	}
+
+	if radius <= 0.0 {
+		fatal("radius must be greater than zero")
+	}
+
+	switch radiusUnits {
+	case "miles", "km":
+		// good
+	default:
+		fatal("units must be one of (miles km)")
 	}
 
 	return yamlReader, yamlWriter
