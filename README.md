@@ -126,11 +126,6 @@ In the case of analog FM zone names, all repeaters go into the specified zone, s
     	Radius for proximity search (default 25)
   -tg
     	Only include DMR repeaters that have talkgroups defined (default true)
-  -tg_source string
-    	One of ('most' 'rfinder' 'details').
-    	RadioID has two fields that may contain talkgroup info, 'details' and 'rfinder'.
-    	By default dmrfill uses the data from whichever field has the most talkgroups defined.
-    	Selecting 'rfinder' or 'details' uses the named field. (default "most")
   -units string
     	Distance units for proximity search, one of ('miles' 'km') (default "miles")
   -v	verbose logging
