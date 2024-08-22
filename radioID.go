@@ -116,40 +116,15 @@ func QueryRadioID(filters filterFlags) (*RadioIDResults, error) {
 		}
 		if matchesAll {
 			// Parse LastUpdated
-			m := lastUpdatedRegex.FindAllStringSubmatch(r.Rfinder, -1)
+			m := lastUpdatedRegex.FindAllStringSubmatch(r.Details, -1)
 			if len(m) > 0 {
 				r.LastUpdated, err = time.Parse("2006-01-02 15:04:05", m[0][1])
 				if err != nil {
 					return nil, fmt.Errorf("error parsing LastUpdated %s: %v", m[0][1], err)
 				}
 			}
-			// Parse talk groups from rfinder field
-			var rfinderTGs, detailsTGs []TalkGroup
-			m = talkGroupRegex.FindAllStringSubmatch(r.Rfinder, -1)
-			for _, s := range m {
-				id, err := strconv.Atoi(s[2])
-				if err != nil {
-					return nil, fmt.Errorf("error parsing TalkGroup ID %s: %v", s[2], err)
-				}
-				ts, err := strconv.Atoi(s[1])
-				if err != nil {
-					return nil, fmt.Errorf("error parsing TalkGroup TimeSlot %s: %v", s[1], err)
-				}
-				name := s[4]
-				if len(name) > nameLength {
-					name = name[:nameLength]
-				}
-				if ts == 1 || ts == 2 {
-					rfinderTGs = append(rfinderTGs, TalkGroup{
-						Number:   id,
-						TimeSlot: ts,
-						Name:     name,
-					})
-				} else {
-					logVerbose("Skipping rfinder talkgroup #%d: %s, bad timeslot %d", id, name, ts)
-				}
-			}
 			// Parse talk groups from details field
+			var detailsTGs []TalkGroup
 			m = talkGroupRegex.FindAllStringSubmatch(r.Details, -1)
 			for _, s := range m {
 				id, err := strconv.Atoi(s[2])
@@ -174,22 +149,9 @@ func QueryRadioID(filters filterFlags) (*RadioIDResults, error) {
 					logVerbose("Skipping details talkgroup #%d: %s, bad timeslot %d", id, name, ts)
 				}
 			}
-			logVerbose("Count - rfinderTGs: %d,\tdetailsTGs: %d", len(rfinderTGs), len(detailsTGs))
-			// logVerbose("rfinderTGs: %#v", rfinderTGs)
+			logVerbose("Count - detailsTGs: %d", len(detailsTGs))
 			// logVerbose("detailsTGs: %#v", detailsTGs)
-
-			switch tgSource {
-			case "most":
-				if len(rfinderTGs) >= len(detailsTGs) {
-					r.TalkGroups = rfinderTGs
-				} else {
-					r.TalkGroups = detailsTGs
-				}
-			case "rfinder":
-				r.TalkGroups = rfinderTGs
-			case "details":
-				r.TalkGroups = detailsTGs
-			}
+			r.TalkGroups = detailsTGs
 			if !talkgroupsRequired || len(r.TalkGroups) > 0 {
 				newResults = append(newResults, r)
 			} else {
@@ -220,22 +182,22 @@ type RadioIDResults struct {
 }
 
 type RadioIDResult struct {
-	Callsign    string `json:"callsign"`     // "KC1FRJ"
-	City        string `json:"city"`         // "Presque Isle"
-	ColorCode   int    `json:"color_code"`   // 12
-	Country     string `json:"country"`      // "United States"
-	Details     string `json:"details"`      // "Time Slot #1 - Group Call 759 = SKYWARN<br>Time Slot #1 - Group Call 9998 = Parrot*<br>Time Slot #1 - Group Call 1 = World Wide*<br>Time Slot #1 - Group Call 13 = WW English*<br>Time Slot #1 - Group Call 3 = North America<br>Time Slot #1 - Group Call 3172 = Northeast<br>Time Slot #1 - Group Call 1 = World Wide*<br>Time Slot #1 - Group Call 13 = WW English*<br>Time Slot #1 - Group Call 3 = North America<br>Time Slot #1 - Group Call 3172 = Northeast<br>Time Slot #1 - Group Call 310 = TAC310*<br>Time Slot #1 - Group Call 311 = TAC311*<br>Time Slot #1 - Group Call 113 = UA English 1*<br>Time Slot #1 - Group Call 123 = UA English 2*<br>Time Slot #1 - Group Call 8801 = NETAC 1*<br>------------------------------------<br>Time Slot #2 - Group Call 8802 = NETAC 2*<br>Time Slot #2 - Group Call 3181 = New England Wide<br>Time Slot #2 - Group Call 8 = Region North<br>Time Slot #2 - Group Call 3133 = New Hampshire*<br>Time Slot #2 - Group Call 3123 = ME Statewide<br>Time Slot #1 - Group Call 3029 = New Brunswick<br>Time Slot #2 - Group Call 9 = Local Site<br><br>* PTT Activated<br><br>You Must Have [ARS] Disabled Within Your Radio<br> <br>Contact: Dave, KQ1L<br>Email: dhawke@gwi.net<br>Website: http://nedecn.org<br>"
-	Frequency   string `json:"frequency"`    // "145.18000"
-	ID          int    `json:"id"`           // 310198
-	IPSCNetwork string `json:"ipsc_network"` // "NEDECN"
-	Offset      string `json:"offset"`       // "-0.600"
-	Rfinder     string `json:"rfinder"`      // "IPSC Network:NEDECN - Color Code:12 - Assigned:Peer - TS Linked:TS1 TS2 - Operator:KC1FRJ<br>Time Slot # 1 - Group Call 1 = World Wide*<br>Time Slot # 1 - Group Call 3 = North America<br>Time Slot # 1 - Group Call 13 = WW English*<br>Time Slot # 1 - Group Call 113 = UA English 1*<br>Time Slot # 1 - Group Call 123 = UA English 2*<br>Time Slot # 1 - Group Call 310 = TAC310*<br>Time Slot # 1 - Group Call 311 = TAC311*<br>Time Slot # 1 - Group Call 759 = SKYWARN<br>Time Slot # 1 - Group Call 3029 = New Brunswick<br>Time Slot # 1 - Group Call 3172 = Northeast<br>Time Slot # 1 - Group Call 8801 = NETAC 1*<br>Time Slot # 1 - Group Call 9998 = Parrot*<br>Time Slot # 2 - Group Call 8 = Region North<br>Time Slot # 2 - Group Call 9 = Local Site<br>Time Slot # 2 - Group Call 3123 = ME Statewide<br>Time Slot # 2 - Group Call 3133 = New Hampshire*<br>Time Slot # 2 - Group Call 3181 = New England Wide<br>Time Slot # 2 - Group Call 8802 = NETAC 2*<br><br>Last Update: 2024-06-24 21:06:51"
-	State       string `json:"state"`        // "Maine"
-	Trustee     string `json:"trustee"`      // "KC1FRJ"
-	TSLinked    string `json:"ts_linked"`    // "TS1 TS2"
-	LastUpdated time.Time
-	Band        string
-	TalkGroups  []TalkGroup
+	Callsign       string `json:"callsign"`        // "KC1FRJ"
+	City           string `json:"city"`            // "Presque Isle"
+	ColorCode      int    `json:"color_code"`      // 12
+	Country        string `json:"country"`         // "United States"
+	Details        string `json:"details"`         // "Time Slot #1 - Group Call 759 = SKYWARN\u003Cbr\u003ETime Slot #1 - Group Call 9998 = Parrot*\u003Cbr\u003ETime Slot #1 - Group Call 1 = World Wide*\u003Cbr\u003ETime Slot #1 - Group Call 13 = WW English*\u003Cbr\u003ETime Slot #1 - Group Call 3 = North America\u003Cbr\u003ETime Slot #1 - Group Call 3172 = Northeast\u003Cbr\u003ETime Slot #1 - Group Call 310 = TAC310*\u003Cbr\u003ETime Slot #1 - Group Call 311 = TAC311*\u003Cbr\u003ETime Slot #1 - Group Call 113 = UA English 1*\u003Cbr\u003ETime Slot #1 - Group Call 123 = UA English 2*\u003Cbr\u003ETime Slot #1 - Group Call 8801 = NETAC 1*\u003Cbr\u003E------------------------------------\u003Cbr\u003ETime Slot #2 - Group Call 8802 = NETAC 2*\u003Cbr\u003ETime Slot #2 - Group Call 3181 = New England Wide\u003Cbr\u003ETime Slot #2 - Group Call 8 = Region North\u003Cbr\u003ETime Slot #2 - Group Call 3133 = NH Statewide\u003Cbr\u003ETime Slot #2 - Group Call 3123 = ME Statewide\u003Cbr\u003ETime Slot #1 - Group Call 3029 = New Brunswick\u003Cbr\u003ETime Slot #2 - Group Call 9 = Local Site\u003Cbr\u003E\u003Cbr\u003E* PTT Activated\u003Cbr\u003E\u003Cbr\u003EYou Must Have [ARS] Disabled Within Your Radio\u003Cbr\u003EContact: Dave, KQ1L\u003Cbr\u003EEmail: dhawke@gwi.net\u003Cbr\u003EWebsite: http://nedecn.org"
+	Frequency      string `json:"frequency"`       // "145.18000"
+	ID             int    `json:"id"`              // 310198
+	IPSCNetwork    string `json:"ipsc_network"`    // "NEDECN"
+	Offset         string `json:"offset"`          // "-0.600"
+	RfinderDetails int    `json:"rfinder_details"` // 0
+	State          string `json:"state"`           // "Maine"
+	Trustee        string `json:"trustee"`         // "KC1FRJ"
+	TSLinked       string `json:"ts_linked"`       // "TS1 TS2"
+	LastUpdated    time.Time
+	Band           string
+	TalkGroups     []TalkGroup
 }
 
 func (r RadioIDResult) GetCallsign() string {
