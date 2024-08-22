@@ -88,7 +88,6 @@ var (
 	nameLength         int
 	open               bool
 	onAir              bool
-	tgSource           string
 	location           string
 	radius             float64
 	radiusUnits        string
@@ -110,11 +109,6 @@ func init() {
 	flag.IntVar(&nameLength, "name_lim", 16, "Length limit for generated names")
 	flag.BoolVar(&open, "open", true, "Only include open repeaters")
 	flag.BoolVar(&onAir, "on_air", true, "Only include on-air repeaters")
-	flag.StringVar(&tgSource, "tg_source", "most",
-		`One of ('most' 'rfinder' 'details').
-RadioID has two fields that may contain talkgroup info, 'details' and 'rfinder'.
-By default dmrfill uses the data from whichever field has the most talkgroups defined.
-Selecting 'rfinder' or 'details' uses the named field.`)
 	flag.StringVar(&location, "loc", "", "Center location for proximity search, e.g. 'Bangor, ME', 'München'")
 	flag.Float64Var(&radius, "radius", 25, "Radius for proximity search")
 	flag.StringVar(&radiusUnits, "units", "miles", "Distance units for proximity search, one of ('miles' 'km')")
@@ -455,13 +449,6 @@ func parseArguments() (io.ReadCloser, io.WriteCloser) {
 		// good
 	default:
 		fatal("power must be one of (Min Low Mid High Max)")
-	}
-
-	switch tgSource {
-	case "most", "rfinder", "details":
-		// good
-	default:
-		fatal("tg_source must be one of (most rfinder details)")
 	}
 
 	if radius <= 0.0 {
