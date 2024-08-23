@@ -98,6 +98,7 @@ func QueryRadioID(filters filterFlags) (*RadioIDResults, error) {
 		return nil, err
 	}
 	logVerbose("found %d results", result.Count)
+	logVeryVerbose("results %#v", result.Results)
 	// Do client filtering
 	newResults := []RadioIDResult{}
 	for _, r := range result.Results {
@@ -152,11 +153,11 @@ func QueryRadioID(filters filterFlags) (*RadioIDResults, error) {
 			logVerbose("Count - detailsTGs: %d", len(detailsTGs))
 			// logVerbose("detailsTGs: %#v", detailsTGs)
 			r.TalkGroups = detailsTGs
-			if !talkgroupsRequired || len(r.TalkGroups) > 0 {
-				newResults = append(newResults, r)
-			} else {
-				logVerbose("Skipping repeater with no talkgroups: %v", r)
-			}
+			// if !talkgroupsRequired || len(r.TalkGroups) > 0 {
+			newResults = append(newResults, r)
+			// } else {
+			// 	logVerbose("Skipping repeater with no talkgroups: %v", r)
+			// }
 		}
 	}
 	result.Count = len(newResults)
@@ -211,10 +212,4 @@ func (r RadioIDResult) GetFrequency() string {
 }
 func (r RadioIDResult) GetState() string {
 	return r.State
-}
-
-type TalkGroup struct {
-	Number   int
-	TimeSlot int
-	Name     string
 }

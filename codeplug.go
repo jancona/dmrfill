@@ -430,6 +430,12 @@ func (g GroupList) GetID() string {
 	return g.ID
 }
 
+type TalkGroup struct {
+	Number   int
+	TimeSlot int
+	Name     string
+}
+
 type DefaultableInt struct {
 	Value    int
 	HasValue bool

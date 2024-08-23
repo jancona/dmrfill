@@ -119,6 +119,7 @@ func init() {
 const (
 	radioID      = "RADIOID_DMR"
 	repeaterBook = "REPEATERBOOK_FM"
+	// brandmeister      = "BRANDMEISTER_DMR"
 )
 
 func main() {
@@ -180,7 +181,10 @@ func main() {
 		if err != nil {
 			fatal("error querying RadioID: %v", err)
 		}
+		logVeryVerbose("RadioID results %#v", result)
+
 		for _, repeater := range result.Results {
+			logVeryVerbose("Processing repeater %#v", repeater)
 			rxFreq, err := strconv.ParseFloat(repeater.Frequency, 64)
 			if err != nil {
 				logError("skipping repeater with bad Frequency %s: %v", repeater.Frequency, err)
@@ -215,6 +219,20 @@ func main() {
 				Name: ReplaceArgs(glPattern, repeater, &tg),
 			}
 			codeplug.GroupLists = append(codeplug.GroupLists, &gl2)
+			net := strings.ToLower(repeater.IPSCNetwork)
+			var bmTalkgroups []TalkGroup
+			if strings.Contains(net, "brandmeister") || strings.Contains(net, "bm") {
+				// Call Brandmeister API to lookup talkgroups
+				bmTalkgroups, err = QueryBrandmeisterTalkgroups(repeater)
+				if err != nil {
+					logError("error getting Brandmeister talkgroups for repeater %#v: %v", repeater, err)
+				}
+			}
+			logVeryVerbose("radioID talkgroups: %#v", repeater.TalkGroups)
+			logVeryVerbose("bmTalkgroups: %#v", bmTalkgroups)
+			if len(bmTalkgroups) > len(repeater.TalkGroups) {
+				repeater.TalkGroups = bmTalkgroups
+			}
 
 			logVeryVerbose("repeater.TalkGroups: %#v", repeater.TalkGroups)
 			for _, tg := range repeater.TalkGroups {
