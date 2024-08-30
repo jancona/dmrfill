@@ -213,6 +213,7 @@ type RepeaterBookResult struct {
 	TSQ               string `json:"TSQ"`
 	NearestCity       string `json:"Nearest City"`
 	Landmark          string `json:"Landmark"`
+	Region            string `json:"Region"`
 	County            string `json:"County"`
 	State             string `json:"State"`
 	Country           string `json:"Country"`
