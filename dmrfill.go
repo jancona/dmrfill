@@ -148,7 +148,7 @@ func main() {
 		rbFilters := make(filterFlags, len(filters)+1)
 		copy(rbFilters, filters)
 		rbFilters.Set("mode=dmr")
-		repeaterList, err := QueryRepeaterBook(filters)
+		repeaterList, err := QueryRepeaterBook(rbFilters)
 		if err != nil {
 			fatal("error querying RepeaterBook: %v", err)
 		}
@@ -156,20 +156,22 @@ func main() {
 		b.WriteString("id=")
 		first := true
 		for _, r := range repeaterList.Results {
+			var id int
 			if r.DMRID == "" {
 				logVerbose("skipping repeater %s %s with empty DMRID", r.Callsign, r.Frequency)
 				continue
 			} else {
-				id, err := strconv.Atoi(r.DMRID)
-				if err != nil || id == 0 {
-					logVerbose("skipping repeater %s %s with invalid DMRID: %v", r.Callsign, r.Frequency, err)
+				f, ok := r.DMRID.(float64)
+				if !ok || f == 0 {
+					logVerbose("skipping repeater %s %s with invalid DMRID: %v", r.Callsign, r.Frequency, r.DMRID)
 					continue
 				}
+				id = int(f)
 			}
 			if !first {
 				b.WriteString(",")
 			}
-			b.WriteString(r.DMRID)
+			b.WriteString(strconv.Itoa(id))
 			first = false
 		}
 		ridFilters := make(filterFlags, len(filters)+1)

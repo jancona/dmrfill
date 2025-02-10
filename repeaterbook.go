@@ -206,7 +206,7 @@ type RepeaterBookResults struct {
 }
 type RepeaterBookResult struct {
 	StateID           string `json:"State ID"`
-	RptrID            string `json:"Rptr ID"`
+	RptrID            int    `json:"Rptr ID"`
 	Frequency         string `json:"Frequency"`
 	InputFreq         string `json:"Input Freq"`
 	PL                string `json:"PL"`
@@ -233,8 +233,8 @@ type RepeaterBookResult struct {
 	WiresNode         string `json:"Wires Node"`
 	FMAnalog          string `json:"FM Analog"`
 	Dmr               string `json:"DMR"`
-	DMRColorCode      string `json:"DMR Color Code"`
-	DMRID             string `json:"DMR ID"`
+	DMRColorCode      any    `json:"DMR Color Code"` // empty = "", else number
+	DMRID             any    `json:"DMR ID"`         // empty = "", else number
 	DStar             string `json:"D-Star"`
 	Nxdn              string `json:"NXDN"`
 	APCOP25           string `json:"APCO P-25"`
