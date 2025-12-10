@@ -240,7 +240,7 @@ type RepeaterBookResult struct {
 	APCOP25           string `json:"APCO P-25"`
 	P25NAC            string `json:"P-25 NAC"`
 	M17               string `json:"M17"`
-	M17CAN            string `json:"M17 CAN"`
+	M17CAN            any    `json:"M17 CAN"` // empty = "", else number
 	Tetra             string `json:"Tetra"`
 	TetraMCC          string `json:"Tetra MCC"`
 	TetraMNC          string `json:"Tetra MNC"`
