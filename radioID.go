@@ -182,19 +182,19 @@ type RadioIDResults struct {
 }
 
 type RadioIDResult struct {
-	Callsign       string `json:"callsign"`        // "KC1FRJ"
-	City           string `json:"city"`            // "Presque Isle"
-	ColorCode      int    `json:"color_code"`      // 12
-	Country        string `json:"country"`         // "United States"
-	Details        string `json:"details"`         // "Time Slot #1 - Group Call 759 = SKYWARN\u003Cbr\u003ETime Slot #1 - Group Call 9998 = Parrot*\u003Cbr\u003ETime Slot #1 - Group Call 1 = World Wide*\u003Cbr\u003ETime Slot #1 - Group Call 13 = WW English*\u003Cbr\u003ETime Slot #1 - Group Call 3 = North America\u003Cbr\u003ETime Slot #1 - Group Call 3172 = Northeast\u003Cbr\u003ETime Slot #1 - Group Call 310 = TAC310*\u003Cbr\u003ETime Slot #1 - Group Call 311 = TAC311*\u003Cbr\u003ETime Slot #1 - Group Call 113 = UA English 1*\u003Cbr\u003ETime Slot #1 - Group Call 123 = UA English 2*\u003Cbr\u003ETime Slot #1 - Group Call 8801 = NETAC 1*\u003Cbr\u003E------------------------------------\u003Cbr\u003ETime Slot #2 - Group Call 8802 = NETAC 2*\u003Cbr\u003ETime Slot #2 - Group Call 3181 = New England Wide\u003Cbr\u003ETime Slot #2 - Group Call 8 = Region North\u003Cbr\u003ETime Slot #2 - Group Call 3133 = NH Statewide\u003Cbr\u003ETime Slot #2 - Group Call 3123 = ME Statewide\u003Cbr\u003ETime Slot #1 - Group Call 3029 = New Brunswick\u003Cbr\u003ETime Slot #2 - Group Call 9 = Local Site\u003Cbr\u003E\u003Cbr\u003E* PTT Activated\u003Cbr\u003E\u003Cbr\u003EYou Must Have [ARS] Disabled Within Your Radio\u003Cbr\u003EContact: Dave, KQ1L\u003Cbr\u003EEmail: dhawke@gwi.net\u003Cbr\u003EWebsite: http://nedecn.org"
-	Frequency      string `json:"frequency"`       // "145.18000"
-	ID             int    `json:"id"`              // 310198
-	IPSCNetwork    string `json:"ipsc_network"`    // "NEDECN"
-	Offset         string `json:"offset"`          // "-0.600"
-	RfinderDetails int    `json:"rfinder_details"` // 0
-	State          string `json:"state"`           // "Maine"
-	Trustee        string `json:"trustee"`         // "KC1FRJ"
-	TSLinked       string `json:"ts_linked"`       // "TS1 TS2"
+	Callsign       string   `json:"callsign"`        // "KC1FRJ"
+	City           string   `json:"city"`            // "Presque Isle"
+	ColorCode      int      `json:"color_code"`      // 12
+	Country        string   `json:"country"`         // "United States"
+	Details        string   `json:"details"`         // "Time Slot #1 - Group Call 759 = SKYWARN\u003Cbr\u003ETime Slot #1 - Group Call 9998 = Parrot*\u003Cbr\u003ETime Slot #1 - Group Call 1 = World Wide*\u003Cbr\u003ETime Slot #1 - Group Call 13 = WW English*\u003Cbr\u003ETime Slot #1 - Group Call 3 = North America\u003Cbr\u003ETime Slot #1 - Group Call 3172 = Northeast\u003Cbr\u003ETime Slot #1 - Group Call 310 = TAC310*\u003Cbr\u003ETime Slot #1 - Group Call 311 = TAC311*\u003Cbr\u003ETime Slot #1 - Group Call 113 = UA English 1*\u003Cbr\u003ETime Slot #1 - Group Call 123 = UA English 2*\u003Cbr\u003ETime Slot #1 - Group Call 8801 = NETAC 1*\u003Cbr\u003E------------------------------------\u003Cbr\u003ETime Slot #2 - Group Call 8802 = NETAC 2*\u003Cbr\u003ETime Slot #2 - Group Call 3181 = New England Wide\u003Cbr\u003ETime Slot #2 - Group Call 8 = Region North\u003Cbr\u003ETime Slot #2 - Group Call 3133 = NH Statewide\u003Cbr\u003ETime Slot #2 - Group Call 3123 = ME Statewide\u003Cbr\u003ETime Slot #1 - Group Call 3029 = New Brunswick\u003Cbr\u003ETime Slot #2 - Group Call 9 = Local Site\u003Cbr\u003E\u003Cbr\u003E* PTT Activated\u003Cbr\u003E\u003Cbr\u003EYou Must Have [ARS] Disabled Within Your Radio\u003Cbr\u003EContact: Dave, KQ1L\u003Cbr\u003EEmail: dhawke@gwi.net\u003Cbr\u003EWebsite: http://nedecn.org"
+	Frequency      string   `json:"frequency"`       // "145.18000"
+	ID             int      `json:"id"`              // 310198
+	IPSCNetwork    string   `json:"ipsc_network"`    // "NEDECN"
+	Offset         string   `json:"offset"`          // "-0.600"
+	RfinderDetails int      `json:"rfinder_details"` // 0
+	State          string   `json:"state"`           // "Maine"
+	Trustee        []string `json:"trustee"`         // "KC1FRJ"
+	TSLinked       string   `json:"ts_linked"`       // "TS1 TS2"
 	LastUpdated    time.Time
 	Band           string
 	TalkGroups     []TalkGroup
