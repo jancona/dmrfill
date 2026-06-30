@@ -93,6 +93,7 @@ var (
 	radiusUnits        string
 	verbose            bool
 	veryVerbose        bool
+	rbKeyFile          string
 )
 
 func init() {
@@ -112,6 +113,7 @@ func init() {
 	flag.StringVar(&location, "loc", "", "Center location for proximity search, e.g. 'Bangor, ME', 'München'")
 	flag.Float64Var(&radius, "radius", 25, "Radius for proximity search")
 	flag.StringVar(&radiusUnits, "units", "miles", "Distance units for proximity search, one of ('miles' 'km')")
+	flag.StringVar(&rbKeyFile, "rb-key-file", "", "File containing the RepeaterBook API key (overrides REPEATERBOOK_API_KEY env and config file)")
 	flag.BoolVar(&verbose, "v", false, "verbose logging")
 	flag.BoolVar(&veryVerbose, "vv", false, "more verbose logging")
 }
@@ -432,6 +434,14 @@ func parseArguments() (io.ReadCloser, io.WriteCloser) {
 	default:
 		fatal("ds must be one of RADIOID_DMR or REPEATERBOOK_FM")
 	}
+
+	// Both datasources query RepeaterBook (RADIOID_DMR uses it to look up DMR
+	// IDs), so a key is always required.
+	key, err := repeaterBookKey(rbKeyFile)
+	if err != nil {
+		fatal("%v", err)
+	}
+	repeaterBookAPIKey = key
 
 	if !dmrQuery {
 		if zonePattern == flag.Lookup("zone").DefValue {

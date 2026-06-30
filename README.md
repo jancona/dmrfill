@@ -55,6 +55,44 @@ Currently `dmrfill` has two datasources:
 
 A datasource must be specified using the `-ds` argument.
 
+### RepeaterBook API key
+
+RepeaterBook now requires an API key to use its API. Both datasources query
+RepeaterBook — `REPEATERBOOK_FM` for analog repeaters and `RADIOID_DMR` to look
+up DMR IDs — so a key is always required.
+
+To get a key, log in to your RepeaterBook account, go to
+[your API apps page](https://www.repeaterbook.com/user/api_apps.php), and create
+a key for the `dmrfill` app.
+
+The key is a secret, so `dmrfill` never accepts it as a command-line argument. It
+looks for the key in the following places, in order:
+
+1. The file named by the `-rb-key-file` flag (the whole file is read and
+   trimmed of surrounding whitespace).
+2. The `REPEATERBOOK_API_KEY` environment variable.
+3. The `repeaterbook_api_key` key in `$XDG_CONFIG_HOME/dmrfill/config.yaml`
+   (falling back to `~/.config/dmrfill/config.yaml`).
+
+For interactive use, add the key to your shell's startup file:
+
+```sh
+export REPEATERBOOK_API_KEY=your-key-here
+```
+
+Note that typing `export REPEATERBOOK_API_KEY=...` directly at the prompt records
+the key in your shell history. For a persistent setup, put it in the config file
+instead:
+
+```yaml
+# ~/.config/dmrfill/config.yaml
+repeaterbook_api_key: your-key-here
+```
+
+Keep that file private — `dmrfill` warns if it is group- or world-readable.
+Run `chmod 600 ~/.config/dmrfill/config.yaml` to lock it down. The key is never
+logged, even at `-v`/`-vv`.
+
 ### Filters
 
 Each invocation of `dmrfill` should include one or more filters. A filter takes the form `-f 'field=value1[,valueN...]'`, for example `-f 'state=Maine'` or `-f 'county=York,Cumberland,Sagadahoc,Oxford,Androscoggin'`.
@@ -124,6 +162,8 @@ In the case of analog FM zone names, all repeaters go into the specified zone, s
     	Channel power setting, one of ('Min' 'Low' 'Mid' 'High' 'Max') (default "High")
   -radius float
     	Radius for proximity search (default 25)
+  -rb-key-file string
+    	File containing the RepeaterBook API key (REPEATERBOOK_FM only; overrides REPEATERBOOK_API_KEY env and config file)
   -tg
     	Only include DMR repeaters that have talkgroups defined (default true)
   -units string

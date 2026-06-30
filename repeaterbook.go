@@ -142,6 +142,10 @@ func QueryRepeaterBook(filters filterFlags) (*RepeaterBookResults, error) {
 	}
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Cache-Control", "max-age=3600") // Cache results for an hour
+	if repeaterBookAPIKey != "" {
+		req.Header.Set("X-RB-App-Token", repeaterBookAPIKey)
+	}
+	logVeryVerbose("RepeaterBook request headers: %s", redactKey(fmt.Sprintf("%v", req.Header)))
 	resp, err := cachingHttpClient.Do(req)
 	if err != nil {
 		logError("Error executing HTTP request %s: %v", baseURL.String(), err)
