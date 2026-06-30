@@ -84,7 +84,7 @@ var (
 	power              string
 	talkgroupsRequired bool
 	dmrQuery           bool
-	naRepeaterBookDB   bool
+	rowRepeaterBookDB  bool
 	nameLength         int
 	open               bool
 	onAir              bool
@@ -106,7 +106,7 @@ func init() {
 	flag.StringVar(&channelPattern, "ch", "$tg_name:8 $tg_number $time_slot $callsign $city", "Pattern for forming DMR channel names")
 	flag.StringVar(&power, "power", "High", "Channel power setting, one of ('Min' 'Low' 'Mid' 'High' 'Max')")
 	flag.BoolVar(&talkgroupsRequired, "tg", true, "Only include DMR repeaters that have talkgroups defined")
-	flag.BoolVar(&naRepeaterBookDB, "na", true, "Use North American RepeaterBook database. Set it to 'false' to query outside the US, Canada and Mexico.")
+	flag.BoolVar(&rowRepeaterBookDB, "row", false, "Set this option to query outside the US, Canada and Mexico.")
 	flag.IntVar(&nameLength, "name_lim", 16, "Length limit for generated names")
 	flag.BoolVar(&open, "open", true, "Only include open repeaters")
 	flag.BoolVar(&onAir, "on_air", true, "Only include on-air repeaters")

@@ -148,8 +148,8 @@ In the case of analog FM zone names, all repeaters go into the specified zone, s
     	Input QDMR Codeplug YAML file (default STDIN)
   -loc string
     	Center location for proximity search, e.g. 'Bangor, ME', 'München'
-  -na
-    	Use North American RepeaterBook database. Set it to 'false' to query outside the US, Canada and Mexico. (default true)
+  -row
+    	Use RepeaterBook rest-of-world (ROW) database. Set it to 'true' to query outside the US, Canada and Mexico. (default false)
   -name_lim int
     	Length limit for generated names (default 16)
   -on_air

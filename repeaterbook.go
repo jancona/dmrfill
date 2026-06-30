@@ -62,7 +62,7 @@ func init() {
 
 func QueryRepeaterBook(filters filterFlags) (*RepeaterBookResults, error) {
 	var base = repeaterBookNA
-	if !naRepeaterBookDB {
+	if rowRepeaterBookDB {
 		base = repeaterBookROW
 	}
 	if open {
