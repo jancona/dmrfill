@@ -158,17 +158,14 @@ func main() {
 		b.WriteString("id=")
 		first := true
 		for _, r := range repeaterList.Results {
-			var id int
 			if r.DMRID == "" {
 				logVerbose("skipping repeater %s %s with empty DMRID", r.Callsign, r.Frequency)
 				continue
-			} else {
-				f, ok := r.DMRID.(float64)
-				if !ok || f == 0 {
-					logVerbose("skipping repeater %s %s with invalid DMRID: %v", r.Callsign, r.Frequency, r.DMRID)
-					continue
-				}
-				id = int(f)
+			}
+			id, err := strconv.Atoi(string(r.DMRID))
+			if err != nil || id == 0 {
+				logVerbose("skipping repeater %s %s with invalid DMRID: %v", r.Callsign, r.Frequency, r.DMRID)
+				continue
 			}
 			if !first {
 				b.WriteString(",")
@@ -185,7 +182,7 @@ func main() {
 			fatal("error querying RadioID: %v", err)
 		}
 		for _, repeater := range result.Results {
-			rxFreq, err := strconv.ParseFloat(repeater.Frequency, 64)
+			rxFreq, err := strconv.ParseFloat(string(repeater.Frequency), 64)
 			if err != nil {
 				logError("skipping repeater with bad Frequency %s: %v", repeater.Frequency, err)
 				continue
@@ -283,26 +280,26 @@ func main() {
 		// add it to the codeplug
 		codeplug.Zones = append(codeplug.Zones, &zone)
 		for _, repeater := range result.Results {
-			rxFreq, err := strconv.ParseFloat(repeater.Frequency, 64)
+			rxFreq, err := strconv.ParseFloat(string(repeater.Frequency), 64)
 			if err != nil {
 				logError("skipping repeater with bad Frequency %s: %v", repeater.Frequency, err)
 				continue
 			}
-			txFreq, err := strconv.ParseFloat(repeater.InputFreq, 64)
+			txFreq, err := strconv.ParseFloat(string(repeater.InputFreq), 64)
 			if err != nil {
 				logError("skipping repeater with bad InputFreq %s: %v", repeater.InputFreq, err)
 				continue
 			}
 			var rxTone, txTone Tone
 			if repeater.TSQ != "" {
-				err = rxTone.Set(repeater.TSQ)
+				err = rxTone.Set(string(repeater.TSQ))
 				if err != nil {
 					logError("skipping repeater with bad TSQ %s: %v", repeater.TSQ, err)
 					continue
 				}
 			}
 			if repeater.PL != "" {
-				err = txTone.Set(repeater.PL)
+				err = txTone.Set(string(repeater.PL))
 				if err != nil {
 					logError("skipping repeater with bad PL %s: %v", repeater.PL, err)
 					continue

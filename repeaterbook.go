@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -157,6 +158,15 @@ func QueryRepeaterBook(filters filterFlags) (*RepeaterBookResults, error) {
 	}
 	logVeryVerbose("response status %d", resp.StatusCode)
 	logVeryVerbose("response headers: %#v", resp.Header)
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		msg := fmt.Sprintf("RepeaterBook request failed: %s: %s", resp.Status, strings.TrimSpace(string(body)))
+		if ra := resp.Header.Get("Retry-After"); ra != "" {
+			msg += fmt.Sprintf(" (retry after %s seconds)", ra)
+		}
+		logError("%s", msg)
+		os.Exit(1)
+	}
 	decoder := json.NewDecoder(resp.Body)
 	result := RepeaterBookResults{
 		Results: []RepeaterBookResult{},
@@ -170,7 +180,7 @@ func QueryRepeaterBook(filters filterFlags) (*RepeaterBookResults, error) {
 	// Do client filtering
 	newResults := []RepeaterBookResult{}
 	for _, r := range result.Results {
-		f, err := strconv.ParseFloat(r.Frequency, 64)
+		f, err := strconv.ParseFloat(string(r.Frequency), 64)
 		if err == nil {
 			r.Band = band(f)
 		}
@@ -204,68 +214,92 @@ func MatchesRepeaterBook(filter filter, rv reflect.Value) bool {
 	return false
 }
 
+// flexString is a string that also accepts JSON numbers, booleans and null.
+// RepeaterBook changes field datatypes between string and number without
+// notice (see issues #3 and #5), so every result field uses this type.
+type flexString string
+
+func (f *flexString) UnmarshalJSON(b []byte) error {
+	switch {
+	case string(b) == "null":
+		*f = ""
+	case len(b) > 0 && b[0] == '"':
+		var s string
+		if err := json.Unmarshal(b, &s); err != nil {
+			return err
+		}
+		*f = flexString(s)
+	case len(b) > 0 && (b[0] == '{' || b[0] == '['):
+		return fmt.Errorf("unsupported JSON value %s", b)
+	default:
+		// number or boolean: keep the literal text as-is
+		*f = flexString(b)
+	}
+	return nil
+}
+
 type RepeaterBookResults struct {
 	Count   int                  `json:"count"`
 	Results []RepeaterBookResult `json:"results"`
 }
 type RepeaterBookResult struct {
-	StateID           string `json:"State ID"`
-	RptrID            int    `json:"Rptr ID"`
-	Frequency         string `json:"Frequency"`
-	InputFreq         string `json:"Input Freq"`
-	PL                string `json:"PL"`
-	TSQ               string `json:"TSQ"`
-	NearestCity       string `json:"Nearest City"`
-	Landmark          string `json:"Landmark"`
-	Region            string `json:"Region"`
-	County            string `json:"County"`
-	State             string `json:"State"`
-	Country           string `json:"Country"`
-	Lat               string `json:"Lat"`
-	Long              string `json:"Long"`
-	Precise           int    `json:"Precise"`
-	Callsign          string `json:"Callsign"`
-	Use               string `json:"Use"`
-	OperationalStatus string `json:"Operational Status"`
-	Ares              string `json:"ARES"`
-	Races             string `json:"RACES"`
-	Skywarn           string `json:"SKYWARN"`
-	Canwarn           string `json:"CANWARN"`
-	AllStarNode       string `json:"AllStar Node"`
-	EchoLinkNode      string `json:"EchoLink Node"`
-	IRLPNode          string `json:"IRLP Node"`
-	WiresNode         string `json:"Wires Node"`
-	FMAnalog          string `json:"FM Analog"`
-	Dmr               string `json:"DMR"`
-	DMRColorCode      any    `json:"DMR Color Code"` // empty = "", else number
-	DMRID             any    `json:"DMR ID"`         // empty = "", else number
-	DStar             string `json:"D-Star"`
-	Nxdn              string `json:"NXDN"`
-	APCOP25           string `json:"APCO P-25"`
-	P25NAC            string `json:"P-25 NAC"`
-	M17               string `json:"M17"`
-	M17CAN            any    `json:"M17 CAN"` // empty = "", else number
-	Tetra             string `json:"Tetra"`
-	TetraMCC          string `json:"Tetra MCC"`
-	TetraMNC          string `json:"Tetra MNC"`
-	SystemFusion      string `json:"System Fusion"`
-	YSFDGIDUplink     string `json:"YSF DG ID Uplink"`
-	YSFDGISDownlink   string `json:"YSF DG IS Downlink"`
-	YSFDSC            string `json:"YSF DSC"`
-	Notes             string `json:"Notes"`
-	LastUpdate        string `json:"Last Update"`
+	StateID           flexString `json:"State ID"`
+	RptrID            flexString `json:"Rptr ID"`
+	Frequency         flexString `json:"Frequency"`
+	InputFreq         flexString `json:"Input Freq"`
+	PL                flexString `json:"PL"`
+	TSQ               flexString `json:"TSQ"`
+	NearestCity       flexString `json:"Nearest City"`
+	Landmark          flexString `json:"Landmark"`
+	Region            flexString `json:"Region"`
+	County            flexString `json:"County"`
+	State             flexString `json:"State"`
+	Country           flexString `json:"Country"`
+	Lat               flexString `json:"Lat"`
+	Long              flexString `json:"Long"`
+	Precise           flexString `json:"Precise"`
+	Callsign          flexString `json:"Callsign"`
+	Use               flexString `json:"Use"`
+	OperationalStatus flexString `json:"Operational Status"`
+	Ares              flexString `json:"ARES"`
+	Races             flexString `json:"RACES"`
+	Skywarn           flexString `json:"SKYWARN"`
+	Canwarn           flexString `json:"CANWARN"`
+	AllStarNode       flexString `json:"AllStar Node"`
+	EchoLinkNode      flexString `json:"EchoLink Node"`
+	IRLPNode          flexString `json:"IRLP Node"`
+	WiresNode         flexString `json:"Wires Node"`
+	FMAnalog          flexString `json:"FM Analog"`
+	Dmr               flexString `json:"DMR"`
+	DMRColorCode      flexString `json:"DMR Color Code"`
+	DMRID             flexString `json:"DMR ID"`
+	DStar             flexString `json:"D-Star"`
+	Nxdn              flexString `json:"NXDN"`
+	APCOP25           flexString `json:"APCO P-25"`
+	P25NAC            flexString `json:"P-25 NAC"`
+	M17               flexString `json:"M17"`
+	M17CAN            flexString `json:"M17 CAN"`
+	Tetra             flexString `json:"Tetra"`
+	TetraMCC          flexString `json:"Tetra MCC"`
+	TetraMNC          flexString `json:"Tetra MNC"`
+	SystemFusion      flexString `json:"System Fusion"`
+	YSFDGIDUplink     flexString `json:"YSF DG ID Uplink"`
+	YSFDGISDownlink   flexString `json:"YSF DG IS Downlink"`
+	YSFDSC            flexString `json:"YSF DSC"`
+	Notes             flexString `json:"Notes"`
+	LastUpdate        flexString `json:"Last Update"`
 	Band              string
 }
 
 func (r RepeaterBookResult) GetCallsign() string {
-	return r.Callsign
+	return string(r.Callsign)
 }
 func (r RepeaterBookResult) GetCity() string {
-	return r.NearestCity
+	return string(r.NearestCity)
 }
 func (r RepeaterBookResult) GetFrequency() string {
-	return r.Frequency
+	return string(r.Frequency)
 }
 func (r RepeaterBookResult) GetState() string {
-	return r.State
+	return string(r.State)
 }

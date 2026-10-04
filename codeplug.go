@@ -384,7 +384,7 @@ func (t *Tone) Set(val string) error {
 	var err error
 	if strings.HasPrefix(val, "D") {
 		t.DCS, err = strconv.ParseFloat(val[1:], 64)
-	} else if val != "" {
+	} else if val != "" && val != "CSQ" { // CSQ = carrier squelch, no tone
 		t.CTCSS, err = strconv.ParseFloat(val, 64)
 	}
 	return err
